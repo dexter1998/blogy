@@ -1,0 +1,87 @@
+.footer {
+  background: var(--gray-900);
+  color: var(--gray-400);
+  padding: 64px 0 32px;
+}
+.footer-top {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr 1fr;
+  gap: 40px;
+  margin-bottom: 48px;
+}
+.footer-brand {}
+.footer-logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 12px;
+}
+.footer-logo img { border-radius: 5px; }
+.footer-tagline {
+  font-size: 0.85rem;
+  line-height: 1.65;
+  color: var(--gray-500);
+  max-width: 260px;
+  margin-bottom: 20px;
+}
+.footer-socials {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+.social-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px; height: 36px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: var(--radius-sm);
+  color: var(--gray-400);
+  transition: background 0.15s, color 0.15s;
+}
+.social-link:hover { background: var(--teal-700); color: #fff; border-color: var(--teal-600); }
+.ph-badge img { height: 36px; width: auto; opacity: 0.85; transition: opacity 0.15s; }
+.ph-badge:hover img { opacity: 1; }
+
+.footer-col {}
+.footer-col-title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--gray-300);
+  margin-bottom: 16px;
+}
+.footer-link {
+  display: block;
+  font-size: 0.875rem;
+  color: var(--gray-500);
+  margin-bottom: 10px;
+  transition: color 0.15s;
+}
+.footer-link:hover { color: var(--teal-400); }
+
+.footer-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 24px;
+  border-top: 1px solid rgba(255,255,255,0.07);
+  font-size: 0.82rem;
+  color: var(--gray-600);
+}
+
+@media (max-width: 900px) {
+  .footer-top { grid-template-columns: 1fr 1fr; }
+  .footer-brand { grid-column: 1 / -1; }
+}
+@media (max-width: 520px) {
+  .footer-top { grid-template-columns: 1fr 1fr; }
+  .footer-bottom { flex-direction: column; gap: 8px; text-align: center; }
+}
