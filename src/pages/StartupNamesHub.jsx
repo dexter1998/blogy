@@ -5,7 +5,7 @@ import SEOHead from '../components/SEOHead';
 import './StartupNamesHub.css';
 
 export default function StartupNamesHub() {
-  const { categories, total_names } = data;
+  const { categories } = data;
   const [search, setSearch] = useState('');
 
   const filtered = categories.filter(c =>

@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { useParams, Link, Navigate } from 'react-router-dom';
 import data from '../data/startup-names.json';
 import SEOHead from '../components/SEOHead';
