@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import './Navbar.css';
 
 const PRODUCTS = [
@@ -28,7 +29,7 @@ const INDUSTRIES = [
 ];
 
 const RESOURCES = [
-  { label: 'Blog & News', href: './pages/blogs.html' },
+  { label: 'Blog & News', href: '#' },
   { label: 'Help Center', href: '#' },
   { label: 'Roadmap', href: '#' },
   { label: 'Changelog', href: '#' },
@@ -106,6 +107,7 @@ export default function Navbar() {
             </div>
           } wide />
           <a href="/#pricing" className="nav-link">Pricing</a>
+          <Link to="/startup-names" className="nav-link nav-link-highlight">Startup Names</Link>
           <Dropdown label="Resources" items={
             <div className="dropdown-list">
               {RESOURCES.map(r => (

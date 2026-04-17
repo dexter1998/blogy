@@ -9,7 +9,7 @@ const FOOTER_LINKS = {
     { label: 'Roadmap', href: '#' },
   ],
   Resources: [
-    { label: 'Blog', href: './pages/blogs.html' },
+    { label: 'Blog', href: '#' },
     { label: 'FAQ', href: '/#faq' },
     { label: 'Help Center', href: '#' },
     { label: 'API Docs', href: '#' },

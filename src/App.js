@@ -1,3 +1,5 @@
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { HelmetProvider } from 'react-helmet-async';
 import './index.css';
 import Navbar from './components/Navbar';
 import Hero from './components/Hero';
@@ -9,23 +11,43 @@ import Pricing from './components/Pricing';
 import FAQ from './components/FAQ';
 import CTABanner from './components/CTABanner';
 import Footer from './components/Footer';
+import StartupNamesHub from './pages/StartupNamesHub';
+import StartupNamesCategory from './pages/StartupNamesCategory';
+import SEOHead from './components/SEOHead';
+
+function LandingPage() {
+  return (
+    <main>
+      <SEOHead
+        title="Blogy — Rank #1 on Google & ChatGPT with AI Blog Posts"
+        description="Blogy writes SEO-optimized blog posts that rank on Google and AI search engines. Start your first 10 posts free."
+        path="/"
+      />
+      <Hero />
+      <Stats />
+      <HowItWorks />
+      <Features />
+      <Integrations />
+      <Pricing />
+      <FAQ />
+      <CTABanner />
+    </main>
+  );
+}
 
 function App() {
   return (
-    <>
-      <Navbar />
-      <main>
-        <Hero />
-        <Stats />
-        <HowItWorks />
-        <Features />
-        <Integrations />
-        <Pricing />
-        <FAQ />
-        <CTABanner />
-      </main>
-      <Footer />
-    </>
+    <HelmetProvider>
+      <BrowserRouter>
+        <Navbar />
+        <Routes>
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/startup-names" element={<StartupNamesHub />} />
+          <Route path="/startup-names/:slug" element={<StartupNamesCategory />} />
+        </Routes>
+        <Footer />
+      </BrowserRouter>
+    </HelmetProvider>
   );
 }
 
