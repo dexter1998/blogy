@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { HelmetProvider } from 'react-helmet-async';
+import { Analytics } from '@vercel/analytics/react';
 import './index.css';
 import Navbar from './components/Navbar';
 import Hero from './components/Hero';
@@ -46,6 +47,7 @@ function App() {
           <Route path="/startup-names/:slug" element={<StartupNamesCategory />} />
         </Routes>
         <Footer />
+        <Analytics />
       </BrowserRouter>
     </HelmetProvider>
   );
