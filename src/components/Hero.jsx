@@ -1,130 +1,178 @@
+import { useState, useEffect } from 'react';
 import './Hero.css';
 
-const BG_CHARS = [
-  { c: 'Z',  t: 7,  l: 2  }, { c: 'W',  t: 19, l: 5  }, { c: 'L',  t: 33, l: 1  },
-  { c: 'E',  t: 47, l: 4  }, { c: 'C',  t: 60, l: 2  }, { c: 'R',  t: 73, l: 5  },
-  { c: 'T',  t: 85, l: 1  }, { c: 'B',  t: 94, l: 3  },
-  { c: 'H',  t: 6,  l: 13 }, { c: 'M',  t: 20, l: 11 }, { c: 'X',  t: 35, l: 15 },
-  { c: 'Q',  t: 50, l: 12 }, { c: 'V',  t: 65, l: 14 }, { c: 'N',  t: 79, l: 11 },
-  { c: 'P',  t: 91, l: 13 },
-  { c: 'A',  t: 10, l: 24 }, { c: 'F',  t: 26, l: 22 }, { c: 'Y',  t: 43, l: 27 },
-  { c: 'J',  t: 59, l: 23 }, { c: 'K',  t: 75, l: 26 }, { c: 'D',  t: 89, l: 22 },
-  { c: 'O',  t: 4,  l: 37 }, { c: 'G',  t: 96, l: 39 },
-  { c: 'S',  t: 4,  l: 61 }, { c: 'T',  t: 97, l: 63 },
-  { c: 'Z',  t: 9,  l: 73 }, { c: 'W',  t: 24, l: 76 }, { c: 'L',  t: 40, l: 72 },
-  { c: 'E',  t: 56, l: 75 }, { c: 'C',  t: 71, l: 73 }, { c: 'H',  t: 85, l: 76 },
-  { c: 'M',  t: 95, l: 72 },
-  { c: 'X',  t: 7,  l: 84 }, { c: 'Q',  t: 21, l: 88 }, { c: 'V',  t: 36, l: 85 },
-  { c: 'N',  t: 52, l: 89 }, { c: 'P',  t: 67, l: 86 }, { c: 'A',  t: 81, l: 89 },
-  { c: 'F',  t: 93, l: 84 },
-  { c: 'Y',  t: 5,  l: 94 }, { c: 'J',  t: 17, l: 97 }, { c: 'K',  t: 31, l: 95 },
-  { c: 'D',  t: 46, l: 98 }, { c: 'O',  t: 61, l: 94 }, { c: 'G',  t: 76, l: 97 },
-  { c: 'S',  t: 89, l: 95 },
-  { c: 'TB', t: 14, l: 32 }, { c: 'HM', t: 28, l: 35 }, { c: 'CE', t: 44, l: 31 },
-  { c: 'GS', t: 60, l: 34 }, { c: 'VW', t: 76, l: 32 },
-  { c: 'EH', t: 12, l: 54 }, { c: 'XQ', t: 30, l: 58 }, { c: 'NP', t: 48, l: 55 },
-  { c: 'TB', t: 66, l: 57 }, { c: 'WL', t: 82, l: 54 },
+const KEYWORDS = [
+  { kw: 'ai content marketing',   vol: '12K' },
+  { kw: 'seo automation tools',   vol: '8.4K' },
+  { kw: 'llm search optimization',vol: '3.1K' },
+  { kw: 'programmatic seo guide', vol: '5.7K' },
+  { kw: 'ai blog writer india',   vol: '2.8K' },
 ];
 
-const LOGOS = [
-  { name: 'elia',          cls: 'logo-elia'     },
-  { name: 'InsuranceHub',  cls: 'logo-insurance'},
-  { name: 'TokPortal',     cls: 'logo-tokportal'},
-  { name: 'legal family',  cls: 'logo-legal'    },
+const AI_LOGOS = [
+  /* Google */
+  <svg key="g" viewBox="0 0 48 48" width="54%" height="54%">
+    <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+    <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+    <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+    <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+  </svg>,
+  /* ChatGPT */
+  <svg key="c" viewBox="0 0 41 41" width="54%" height="54%" fill="none">
+    <path d="M37.532 16.87a9.963 9.963 0 0 0-.856-8.184 10.078 10.078 0 0 0-10.855-4.835 9.964 9.964 0 0 0-6.247-3.592 10.079 10.079 0 0 0-11.847 4.964 9.964 9.964 0 0 0-6.685 3.377 10.079 10.079 0 0 0-1.339 11.725 9.964 9.964 0 0 0 .856 8.185 10.079 10.079 0 0 0 10.855 4.835 9.965 9.965 0 0 0 6.247 3.592 10.078 10.078 0 0 0 11.847-4.965 9.965 9.965 0 0 0 6.685-3.376 10.079 10.079 0 0 0 1.339-11.726zm-25.134 8.6a3.733 3.733 0 0 1-2.405-.872l.084-.048 3.992-2.304a.658.658 0 0 0 .33-.576v-5.631l1.688.974v4.621a3.741 3.741 0 0 1-3.689 3.836z" fill="#10a37f"/>
+  </svg>,
+  /* Claude */
+  <svg key="cl" viewBox="0 0 100 100" width="54%" height="54%" fill="none">
+    <rect width="100" height="100" rx="22" fill="#D97757"/>
+    <path d="M30 62 L42 28 L50 28 L62 62 L55 62 L52 54 L40 54 L37 62 Z M42 47 L50 47 L46 35 Z M66 62 L66 28 L72 28 L72 62 Z" fill="#fff"/>
+  </svg>,
+  /* Perplexity */
+  <svg key="p" viewBox="0 0 100 100" width="54%" height="54%" fill="none">
+    <rect width="100" height="100" rx="20" fill="#1c1c2e"/>
+    <path d="M50 10 L25 30 L50 30 L50 50 L25 50 L25 90 L37 90 L37 62 L63 62 L63 90 L75 90 L75 50 L50 50 L50 30 L75 30 Z" fill="#20c5b5"/>
+    <path d="M18 30 L50 12 L82 30" stroke="#20c5b5" strokeWidth="4" fill="none"/>
+  </svg>,
 ];
+
+const FULL_TEXT =
+  'optimizes for both Google SERPs and conversational AI answers from ChatGPT, Claude and Perplexity';
+
+const GOOGLE_ICON = (
+  <svg viewBox="0 0 24 24" width="20" height="20" xmlns="http://www.w3.org/2000/svg">
+    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+  </svg>
+);
 
 export default function Hero() {
+  const [sel, setSel] = useState(1);
+  const [typed, setTyped] = useState('');
+
+  useEffect(() => {
+    let i = 0;
+    setTyped('');
+    const id = setInterval(() => {
+      i++;
+      setTyped(FULL_TEXT.slice(0, i));
+      if (i >= FULL_TEXT.length) clearInterval(id);
+    }, 28);
+    return () => clearInterval(id);
+  }, [sel]);
+
+  const title = KEYWORDS[sel].kw.replace(/\b\w/g, c => c.toUpperCase()) + ': The 2026 Playbook';
+
   return (
     <section id="home" className="hero">
-      {/* Scattered letter background */}
-      <div className="hero-bg" aria-hidden="true">
-        {BG_CHARS.map(({ c, t, l }, i) => (
-          <span key={i} className="hero-letter" style={{ top: `${t}%`, left: `${l}%` }}>
-            {c}
-          </span>
-        ))}
-      </div>
+      {/* dot-grid background */}
+      <div className="hero-dots" aria-hidden="true" />
 
       <div className="container hero-container">
         {/* Badge */}
         <div className="hero-badge animate-fade-up">
-          <svg width="16" height="16" viewBox="0 0 22 22" fill="none">
-            <path fillRule="evenodd" clipRule="evenodd" d="M15.1699 0.58575C14.9429-0.19525 13.7499-0.19525 13.5229 0.58575L13.2029 1.69275C12.5109 4.07875 11.5669 5.94175 8.99994 6.58375L7.80794 6.88175C7.43 6.96 7.18 7.28 7.18 7.64675C7.18 8.01 7.43 8.33 7.80794 8.41175L8.99994 8.70975C11.5669 9.35275 12.5109 11.2157 13.2029 13.6007L13.5229 14.7078C13.7499 15.4897 14.9429 15.4897 15.1699 14.7078L15.4899 13.6007C16.1819 11.2157 17.1269 9.35275 19.6939 8.71075L20.8839 8.41175C21.2619 8.32675 21.5117 8.01 21.5117 7.64675C21.5117 7.28 21.2619 6.96 20.8839 6.88175L19.6939 6.58375C17.1269 5.94175 16.1819 4.07875 15.4899 1.69375L15.1699 0.58575Z" fill="url(#g1)"/>
-            <path fillRule="evenodd" clipRule="evenodd" d="M5.283 11.8368C5.147 11.3488 4.431 11.3488 4.296 11.8368L4.103 12.5288C3.688 14.0188 3.122 15.1838 1.581 15.5858L0.867 15.7718C0.525 15.855 0.488 16.1 0.488 16.2498C0.488 16.4 0.525 16.645 0.867 16.7278L1.581 16.9148C3.121 17.3158 3.688 18.4808 4.103 19.9708L4.296 20.6628C4.431 21.1518 5.147 21.1518 5.283 20.6628L5.476 19.9708C5.890 18.4808 6.458 17.3158 7.998 16.9148L8.712 16.7278C9.054 16.645 9.091 16.4 9.091 16.2498C9.091 16.1 9.054 15.855 8.712 15.7718L7.998 15.5858C6.458 15.1848 5.890 14.0198 5.476 12.5288L5.283 11.8368Z" fill="url(#g2)"/>
-            <defs>
-              <linearGradient id="g1" x1="7.18" y1="0" x2="21.51" y2="15.29" gradientUnits="userSpaceOnUse"><stop stopColor="#2dd4bf"/><stop offset="1" stopColor="#0d9488"/></linearGradient>
-              <linearGradient id="g2" x1="9.09" y1="11.47" x2="0.49" y2="21.03" gradientUnits="userSpaceOnUse"><stop stopColor="#14b8a6"/><stop offset="1" stopColor="#0f766e"/></linearGradient>
-            </defs>
+          <svg width="14" height="14" viewBox="0 0 22 22" fill="none">
+            <path fillRule="evenodd" clipRule="evenodd" d="M15.1699 0.58575C14.9429-0.19525 13.7499-0.19525 13.5229 0.58575L13.2029 1.69275C12.5109 4.07875 11.5669 5.94175 8.99994 6.58375L7.80794 6.88175C7.43 6.96 7.18 7.28 7.18 7.64675C7.18 8.01 7.43 8.33 7.80794 8.41175L8.99994 8.70975C11.5669 9.35275 12.5109 11.2157 13.2029 13.6007L13.5229 14.7078C13.7499 15.4897 14.9429 15.4897 15.1699 14.7078L15.4899 13.6007C16.1819 11.2157 17.1269 9.35275 19.6939 8.71075L20.8839 8.41175C21.2619 8.32675 21.5117 8.01 21.5117 7.64675C21.5117 7.28 21.2619 6.96 20.8839 6.88175L19.6939 6.58375C17.1269 5.94175 16.1819 4.07875 15.4899 1.69375L15.1699 0.58575Z" fill="var(--teal-500)"/>
+            <path fillRule="evenodd" clipRule="evenodd" d="M5.283 11.8368C5.147 11.3488 4.431 11.3488 4.296 11.8368L4.103 12.5288C3.688 14.0188 3.122 15.1838 1.581 15.5858L0.867 15.7718C0.525 15.855 0.488 16.1 0.488 16.2498C0.488 16.4 0.525 16.645 0.867 16.7278L1.581 16.9148C3.121 17.3158 3.688 18.4808 4.103 19.9708L4.296 20.6628C4.431 21.1518 5.147 21.1518 5.283 20.6628L5.476 19.9708C5.890 18.4808 6.458 17.3158 7.998 16.9148L8.712 16.7278C9.054 16.645 9.091 16.4 9.091 16.2498C9.091 16.1 9.054 15.855 8.712 15.7718L7.998 15.5858C6.458 15.1848 5.890 14.0198 5.476 12.5288L5.283 11.8368Z" fill="var(--teal-400)"/>
           </svg>
-          <span>Most Powerful SEO Growth Engine</span>
+          AI-native SEO for founders
         </div>
 
         {/* Headline */}
         <h1 className="hero-headline animate-fade-up delay-1">
-          <span className="text-gradient">Rank #1</span> on<br />
-          Google &amp; ChatGPT
+          <span className="text-gradient">Rank&nbsp;#1</span> on<br />
+          Google &amp;{' '}
+          <span className="logo-spinner" aria-hidden="true">
+            <span className="logo-spinner-track">
+              {AI_LOGOS.map((logo, i) => (
+                <span key={i} className="logo-spinner-slide" style={{ animationDelay: `${i * 3}s` }}>
+                  {logo}
+                </span>
+              ))}
+            </span>
+          </span>
+          {' '}AI Search
         </h1>
 
-        {/* Subtext */}
+        {/* Sub */}
         <p className="hero-sub animate-fade-up delay-2">
-          Scale your organic traffic 100% automatically<br />
-          with AI-driven, auto-published SEO blog articles.
+          Starts at <strong>₹0 / month</strong>. Blogy's AI writes, optimizes and
+          publishes SEO blogs to your site — on autopilot.
         </p>
 
         {/* CTAs */}
         <div className="hero-ctas animate-fade-up delay-2">
           <a href="https://dashboard.blogy.in" target="_blank" rel="noopener noreferrer" className="hero-btn-google">
-            <svg className="google-icon" viewBox="0 0 24 24" width="20" height="20" xmlns="http://www.w3.org/2000/svg">
-              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-            </svg>
-            Join with Google
+            {GOOGLE_ICON} Join with Google
           </a>
           <a href="https://dashboard.blogy.in" target="_blank" rel="noopener noreferrer" className="hero-btn-primary">
             Start for free
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
           </a>
         </div>
 
         {/* Social proof */}
         <div className="hero-proof animate-fade-up delay-3">
           <div className="avatars">
-            {['T', 'A', 'B'].map((l, i) => (
-              <div key={i} className="avatar">{l}</div>
+            {['A', 'R', 'S', 'M'].map((l, i) => (
+              <div key={i} className={`avatar av${i + 1}`}>{l}</div>
             ))}
           </div>
-          <div className="stars">
-            {[...Array(5)].map((_, i) => (
-              <svg key={i} width="18" height="18" viewBox="0 0 20 20" fill="#f59e0b">
-                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
-              </svg>
-            ))}
-            <span>150+ customers satisfied</span>
+          <div>
+            <div className="stars">★★★★★</div>
+            <div className="proof-sub">Trusted by 500+ founders &amp; teams</div>
           </div>
         </div>
 
-        {/* Logo strip */}
-        <div className="hero-logos animate-fade-up delay-4">
-          {LOGOS.map(({ name, cls }) => (
-            <span key={name} className={`logo-item ${cls}`}>{name}</span>
-          ))}
-        </div>
+        {/* Editor demo */}
+        <div className="hero-editor animate-fade-up delay-4">
+          {/* Chrome bar */}
+          <div className="editor-chrome">
+            <div className="editor-dots">
+              <span /><span /><span />
+            </div>
+            <div className="editor-url">app.blogy.in / studio / new-post</div>
+            <span className="editor-live">● live</span>
+          </div>
 
-        {/* Video demo */}
-        <div className="hero-video animate-fade-up delay-4">
-          <div className="hero-video-glow" />
-          <div className="hero-video-frame">
-            <iframe
-              title="Blogy Demo"
-              width="100%"
-              height="100%"
-              loading="lazy"
-              src="https://www.youtube.com/embed/9CANRnnWG9k?rel=0&modestbranding=1"
-              style={{ border: 0 }}
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
-            />
+          {/* Body: sidebar + content */}
+          <div className="editor-body">
+            {/* Keyword sidebar */}
+            <aside className="editor-sidebar">
+              <div className="sidebar-label">Keywords · this topic</div>
+              {KEYWORDS.map((k, i) => (
+                <button
+                  key={i}
+                  className={`kw-row ${sel === i ? 'active' : ''}`}
+                  onClick={() => setSel(i)}
+                >
+                  <span className="kw-text">{k.kw}</span>
+                  <span className="kw-vol">{k.vol}</span>
+                </button>
+              ))}
+            </aside>
+
+            {/* Content pane */}
+            <div className="editor-content">
+              <div className="editor-pills">
+                <span className="pill pill-accent">SEO score · 94</span>
+                <span className="pill">1,480 words</span>
+                <span className="pill">Readability · A</span>
+                <span className="pill">Internal links · 7</span>
+              </div>
+              <div className="editor-title">{title}</div>
+              <div className="editor-body-text">
+                <p>
+                  <span className="hl">Blogy</span> is a publishing engine that{' '}
+                  {typed}<span className="cursor" />
+                </p>
+                <p className="editor-ghost">Section 2 · Why search behavior is changing in the era of AI answers…</p>
+              </div>
+              <div className="editor-status">
+                <span className="status-dot" />
+                Auto-publishing to Shopify in 00:04:12
+              </div>
+            </div>
           </div>
         </div>
       </div>

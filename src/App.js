@@ -3,11 +3,18 @@ import { HelmetProvider } from 'react-helmet-async';
 import './index.css';
 import Navbar from './components/Navbar';
 import Hero from './components/Hero';
+import Marquee from './components/Marquee';
+import ProblemSolution from './components/ProblemSolution';
+import GetDiscovered from './components/GetDiscovered';
+import Languages from './components/Languages';
 import Stats from './components/Stats';
-import HowItWorks from './components/HowItWorks';
 import Features from './components/Features';
+import HowItWorks from './components/HowItWorks';
+import BlogyEffect from './components/BlogyEffect';
 import Integrations from './components/Integrations';
+import Testimonials from './components/Testimonials';
 import Pricing from './components/Pricing';
+import Blogs from './components/Blogs';
 import FAQ from './components/FAQ';
 import CTABanner from './components/CTABanner';
 import Footer from './components/Footer';
@@ -24,11 +31,18 @@ function LandingPage() {
         path="/"
       />
       <Hero />
+      <Marquee />
+      <ProblemSolution />
+      <GetDiscovered />
+      <Languages />
       <Stats />
-      <HowItWorks />
       <Features />
+      <HowItWorks />
+      <BlogyEffect />
       <Integrations />
+      <Testimonials />
       <Pricing />
+      <Blogs />
       <FAQ />
       <CTABanner />
     </main>

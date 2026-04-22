@@ -1,100 +1,120 @@
-.navbar {
+/* ── Outer wrapper — gives the sticky top padding + centering ── */
+.navbar-wrap {
   position: fixed;
   top: 0; left: 0; right: 0;
   z-index: 100;
-  background: rgba(255,255,255,0.85);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border-bottom: 1px solid transparent;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  padding: 12px 20px 0;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+
+/* ── The floating pill ── */
+.navbar {
+  width: 100%;
+  max-width: 1060px;
+  pointer-events: auto;
+  background: rgba(255,255,255,0.90);
+  backdrop-filter: blur(18px) saturate(180%);
+  -webkit-backdrop-filter: blur(18px) saturate(180%);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-full);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+  transition: box-shadow 0.25s, border-color 0.25s;
 }
 .navbar.scrolled {
-  border-bottom-color: var(--gray-200);
-  box-shadow: 0 1px 12px rgba(0,0,0,0.06);
+  box-shadow: 0 6px 24px rgba(0,0,0,0.09);
+  border-color: var(--gray-300);
 }
+
 .navbar-inner {
   display: flex;
   align-items: center;
-  height: 64px;
-  gap: 0;
+  height: 54px;
+  padding: 0 10px 0 18px;
+  gap: 4px;
 }
+
+/* Logo */
 .navbar-logo {
   display: flex;
   align-items: center;
   gap: 8px;
   font-family: var(--font-display);
-  font-size: 1.25rem;
-  font-weight: 700;
+  font-size: 1.1rem;
+  font-weight: 800;
   color: var(--gray-900);
   flex-shrink: 0;
+  letter-spacing: -0.03em;
+  margin-right: 6px;
 }
 .navbar-logo img { border-radius: 6px; }
+
+/* Nav links */
 .navbar-nav {
   display: flex;
   align-items: center;
-  gap: 2px;
-  margin-left: 32px;
+  gap: 1px;
   flex: 1;
 }
+
 .nav-link {
-  font-size: 0.9rem;
+  font-size: 0.84rem;
   font-weight: 500;
-  color: var(--gray-600);
-  padding: 6px 12px;
-  border-radius: var(--radius-sm);
+  color: var(--gray-500);
+  padding: 6px 11px;
+  border-radius: var(--radius-full);
   transition: color 0.15s, background 0.15s;
   white-space: nowrap;
+  line-height: 1;
 }
-.nav-link:hover { color: var(--gray-900); background: var(--gray-100); }
+.nav-link:hover,
+.nav-link.active { color: var(--gray-900); background: var(--gray-100); }
 .nav-link-highlight { color: var(--teal-600) !important; }
 .nav-link-highlight:hover { background: var(--teal-50) !important; color: var(--teal-700) !important; }
+
+/* Dropdown */
 .nav-dropdown { position: relative; }
 .nav-dropdown-toggle {
   display: flex;
   align-items: center;
   gap: 4px;
-  font-size: 0.9rem;
+  font-size: 0.84rem;
   font-weight: 500;
-  color: var(--gray-600);
-  padding: 6px 12px;
-  border-radius: var(--radius-sm);
+  color: var(--gray-500);
+  padding: 6px 11px;
+  border-radius: var(--radius-full);
   transition: color 0.15s, background 0.15s;
+  white-space: nowrap;
+  line-height: 1;
 }
-.nav-dropdown-toggle:hover { color: var(--gray-900); background: var(--gray-100); }
-.nav-chevron { transition: transform 0.2s; }
+.nav-dropdown-toggle:hover,
+.nav-dropdown-toggle.active { color: var(--gray-900); background: var(--gray-100); }
+.nav-chevron { transition: transform 0.18s; flex-shrink: 0; }
 .nav-chevron.open { transform: rotate(180deg); }
 
 .dropdown-panel {
   position: absolute;
-  top: calc(100% + 8px);
+  top: calc(100% + 6px);
   left: 50%;
   transform: translateX(-50%);
   background: #fff;
   border: 1px solid var(--gray-200);
-  border-radius: var(--radius-md);
-  box-shadow: 0 12px 40px rgba(0,0,0,0.12);
-  min-width: 220px;
-  padding: 8px;
-  animation: slideIn 0.15s ease;
-  z-index: 50;
+  border-radius: var(--radius-lg);
+  box-shadow: 0 16px 48px rgba(0,0,0,0.12);
+  min-width: 230px;
+  padding: 6px;
+  animation: slideIn 0.12s ease;
+  z-index: 200;
 }
-.dropdown-panel::before {
-  content: '';
-  position: absolute;
-  top: -10px;
-  left: 0;
-  right: 0;
-  height: 10px;
-}
-.dropdown-panel.wide { min-width: 340px; }
-.dropdown-grid { display: grid; grid-template-columns: 1fr; gap: 2px; }
+.dropdown-grid { display: flex; flex-direction: column; gap: 2px; }
 .dropdown-list { display: flex; flex-direction: column; gap: 2px; }
-.dropdown-list.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; }
+
 .dropdown-item {
   display: flex;
   flex-direction: column;
-  padding: 8px 12px;
-  border-radius: var(--radius-sm);
+  padding: 8px 11px;
+  border-radius: var(--radius-md);
   color: var(--gray-700);
   font-size: 0.875rem;
   font-weight: 500;
@@ -103,64 +123,83 @@
 .dropdown-item:hover { background: var(--teal-50); color: var(--teal-700); }
 .dropdown-item.rich { gap: 2px; }
 .dropdown-item-label { font-weight: 600; font-size: 0.875rem; }
-.dropdown-item-desc { font-size: 0.78rem; font-weight: 400; color: var(--gray-500); }
+.dropdown-item-desc { font-size: 0.77rem; font-weight: 400; color: var(--gray-500); }
 .dropdown-item.rich:hover .dropdown-item-desc { color: var(--teal-600); }
 
+/* CTA buttons */
 .navbar-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   margin-left: auto;
 }
-.btn-ghost {
-  font-size: 0.875rem;
+.btn-ghost-nav {
+  font-size: 0.84rem;
   font-weight: 500;
-  color: var(--gray-700);
-  padding: 8px 16px;
-  border-radius: var(--radius-sm);
-  transition: color 0.15s, background 0.15s;
+  color: var(--gray-600);
+  padding: 7px 14px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--gray-200);
+  transition: color 0.15s, border-color 0.15s, box-shadow 0.15s;
+  background: #fff;
 }
-.btn-ghost:hover { color: var(--gray-900); background: var(--gray-100); }
-.btn-primary {
-  font-size: 0.875rem;
+.btn-ghost-nav:hover {
+  color: var(--gray-900);
+  border-color: var(--gray-300);
+  box-shadow: 0 0 0 3px var(--gray-100);
+}
+.btn-primary-nav {
+  font-size: 0.84rem;
   font-weight: 600;
   color: #fff;
-  background: linear-gradient(135deg, var(--teal-600), var(--teal-700));
+  background: var(--teal-600);
   padding: 8px 18px;
-  border-radius: var(--radius-sm);
-  transition: opacity 0.15s, transform 0.15s;
+  border-radius: var(--radius-full);
+  box-shadow: 0 4px 14px rgba(13,148,136,0.28);
+  transition: background 0.15s, transform 0.15s, box-shadow 0.15s;
   white-space: nowrap;
 }
-.btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+.btn-primary-nav:hover {
+  background: var(--teal-700);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(13,148,136,0.36);
+}
+.w-full { width: 100%; text-align: center; display: block; }
 
+/* Mobile toggle */
 .mobile-toggle {
   display: none;
   align-items: center;
   justify-content: center;
-  padding: 6px;
-  border-radius: var(--radius-sm);
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--gray-200);
   color: var(--gray-700);
   margin-left: auto;
   transition: background 0.15s;
+  flex-shrink: 0;
 }
 .mobile-toggle:hover { background: var(--gray-100); }
 
+/* Mobile menu — drops below the pill */
 .mobile-menu {
   background: #fff;
-  border-top: 1px solid var(--gray-200);
-  padding: 16px 24px;
+  border-top: 1px solid var(--gray-100);
+  border-radius: 0 0 var(--radius-xl) var(--radius-xl);
+  padding: 12px 18px 18px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
   max-height: 80vh;
   overflow-y: auto;
 }
-.mobile-section { margin-bottom: 8px; }
+.mobile-section { margin-bottom: 6px; }
 .mobile-heading {
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
   color: var(--gray-400);
   padding: 8px 0 4px;
 }
@@ -169,23 +208,21 @@
   font-size: 0.9rem;
   font-weight: 500;
   color: var(--gray-700);
-  padding: 8px 0;
+  padding: 8px 4px;
   border-bottom: 1px solid var(--gray-100);
 }
+.mobile-link:hover { color: var(--teal-600); }
 .mobile-ctas {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  margin-top: 16px;
-}
-.mobile-ctas .btn-ghost,
-.mobile-ctas .btn-primary {
-  text-align: center;
-  display: block;
-  width: 100%;
+  margin-top: 14px;
 }
 
 @media (max-width: 900px) {
   .navbar-nav, .navbar-actions { display: none; }
   .mobile-toggle { display: flex; }
+}
+@media (max-width: 500px) {
+  .navbar-wrap { padding: 10px 12px 0; }
 }

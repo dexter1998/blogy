@@ -1,93 +1,88 @@
 import { useState } from 'react';
 import './Pricing.css';
 
-const PLANS = [
-  {
-    name: 'Free',
-    monthlyPrice: 0,
-    annualPrice: 0,
-    currency: '₹',
-    desc: 'Acquisition and first value—see Blogy work on your site.',
-    cta: 'Start Free',
-    ctaHref: 'https://dashboard.blogy.in/signin',
-    popular: false,
-    features: [
-      '8 blogs / month (2 per week)',
-      'Basic SEO optimization',
-      'Limited keyword suggestions',
-      'Standard templates',
-      'Blogy branding',
-    ],
-    missing: [
-      'No programmatic SEO',
-      'No backlinks or competitor insights',
-    ],
-  },
+const PAID_TIERS = [
   {
     name: 'Starter',
-    monthlyPrice: 1999,
-    annualPrice: 1499,
-    currency: '₹',
+    monthly: 1999,
+    annual: 1499,
     desc: 'Scale organic content with programmatic SEO from day one.',
-    cta: 'Get Started',
-    ctaHref: 'https://dashboard.blogy.in/signin',
-    popular: false,
     features: [
-      '15 AI blogs / month (~₹133 per blog)',
+      '15 AI blogs / month',
       '200 programmatic SEO pages',
-      'Basic backlinks',
-      'Limited competitor insights',
-      'Keyword clustering & internal linking',
-      'CMS publish & multi-language',
+      'Basic backlink discovery',
+      'Keyword clustering',
+      'Multi-language support',
+      'Publish to any CMS',
     ],
   },
   {
     name: 'Growth',
-    monthlyPrice: 3999,
-    annualPrice: 2999,
-    currency: '₹',
-    desc: 'Most teams serious about topical authority start here.',
-    cta: 'Get Growth',
-    ctaHref: 'https://dashboard.blogy.in/signin',
-    popular: true,
+    monthly: 3999,
+    annual: 2999,
+    desc: 'Teams serious about owning topical authority start here.',
     features: [
-      '30 AI blogs / month (~₹133 per blog)',
+      '30 AI blogs / month',
       '1,000 programmatic SEO pages',
-      'Advanced backlinks & competitor analysis',
-      'Full keyword clustering & topic maps',
-      'Internal linking automation',
-      'Priority CMS publish (all platforms)',
-      'Multi-language support',
+      'Advanced backlink engine',
+      'Competitor analysis',
+      'Internal-link automation',
+      'Priority publish queue',
       'No Blogy branding',
+    ],
+  },
+  {
+    name: 'Scale',
+    monthly: 9999,
+    annual: 7499,
+    desc: 'Agency-grade throughput — without the agency.',
+    features: [
+      'Unlimited AI blogs',
+      '10,000 programmatic pages',
+      'Custom LLM fine-tuning',
+      'API + webhooks',
+      'White-glove onboarding',
+      'Dedicated success manager',
+      'SLA uptime guarantee',
     ],
   },
 ];
 
-function CheckIcon({ color = '#0d9488' }) {
+function CheckIcon() {
   return (
-    <svg width="18" height="18" viewBox="0 0 20 20" fill={color} style={{ flexShrink: 0, marginTop: 1 }}>
-      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"/>
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 2 }}>
+      <path d="M20 6L9 17l-5-5"/>
     </svg>
   );
 }
 function XIcon() {
   return (
-    <svg width="18" height="18" viewBox="0 0 20 20" fill="#9ca3af" style={{ flexShrink: 0, marginTop: 1 }}>
-      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd"/>
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 2 }}>
+      <path d="M18 6L6 18M6 6l12 12"/>
     </svg>
   );
 }
 
 export default function Pricing() {
   const [annual, setAnnual] = useState(false);
+  const [tierIdx, setTierIdx] = useState(1);
+
+  const tier = PAID_TIERS[tierIdx];
+  const price = annual ? tier.annual : tier.monthly;
+  const saving = (tier.monthly - tier.annual) * 12;
 
   return (
     <section id="pricing" className="pricing-section">
       <div className="container">
+        {/* Header */}
         <div className="section-header">
-          <h2 className="section-title">Rank on Google <span className="text-teal">Automatically</span></h2>
-          <p className="section-sub">Start free, upgrade as traffic compounds without hiring or agency retainers.</p>
-          
+          <span className="section-label">Pricing</span>
+          <h2 className="section-title">
+            Slide to the plan that <em>fits you.</em>
+          </h2>
+          <p className="section-sub">
+            Start free. Upgrade as traffic compounds. One slider, three serious tiers.
+          </p>
           {/* Toggle */}
           <div className="pricing-toggle">
             <span className={!annual ? 'active' : ''}>Monthly</span>
@@ -105,51 +100,116 @@ export default function Pricing() {
           </div>
         </div>
 
-        <div className="pricing-grid">
-          {PLANS.map((plan, i) => (
-            <div
-              key={i}
-              className={`pricing-card ${plan.popular ? 'popular' : ''}`}
-              style={{ animationDelay: `${i * 0.1}s` }}
-            >
-              {plan.popular && <div className="popular-badge">Most Popular</div>}
-              
-              <div className="plan-name">{plan.name}</div>
-              <div className="plan-price">
-                <span className="plan-currency">{plan.currency}</span>
-                <span className="plan-amount">
-                  {annual ? plan.annualPrice.toLocaleString('en-IN') : plan.monthlyPrice.toLocaleString('en-IN')}
-                </span>
-                <span className="plan-period">/ month</span>
-              </div>
-              {annual && plan.monthlyPrice > 0 && (
-                <div className="plan-saving">Billed annually — save ₹{((plan.monthlyPrice - plan.annualPrice) * 12).toLocaleString('en-IN')}/yr</div>
-              )}
-              <p className="plan-desc">{plan.desc}</p>
-              
-              <ul className="plan-features">
-                {plan.features.map((f, j) => (
-                  <li key={j}>
-                    <CheckIcon color={plan.popular ? '#0d9488' : '#0d9488'} />
-                    <span>{f}</span>
-                  </li>
-                ))}
-                {plan.missing?.map((f, j) => (
-                  <li key={`x-${j}`} className="missing">
-                    <XIcon />
-                    <span>{f}</span>
-                  </li>
-                ))}
-              </ul>
-              
-              <a href={plan.ctaHref} target="_blank" rel="noopener noreferrer" className={`plan-cta ${plan.popular ? 'plan-cta-primary' : 'plan-cta-secondary'}`}>
-                {plan.cta}
-              </a>
+        {/* Two-col grid */}
+        <div className="pricing-two-col">
+
+          {/* Left — Free card */}
+          <div className="pc-free">
+            <div className="pc-sub-label">For trying it out</div>
+            <div className="pc-plan-name">Free</div>
+            <p className="pc-desc">Kick the tires on your site. No credit card, no time limit.</p>
+            <div className="pc-price-row">
+              <span className="pc-currency">₹</span>
+              <span className="pc-amount">0</span>
+              <span className="pc-period">/ forever</span>
             </div>
-          ))}
+            <a href="https://dashboard.blogy.in/signin" target="_blank" rel="noopener noreferrer" className="pc-cta pc-cta-ghost">
+              Start free
+            </a>
+            <ul className="pc-features">
+              {['8 AI blogs / month', 'Basic SEO optimization', 'Standard templates', 'Google + LLM indexing'].map(f => (
+                <li key={f} className="pc-feat-ok"><CheckIcon /><span>{f}</span></li>
+              ))}
+              {['No programmatic SEO', 'Blogy branding on posts'].map(f => (
+                <li key={f} className="pc-feat-no"><XIcon /><span>{f}</span></li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Right — Paid slider card */}
+          <div className="pc-paid">
+            <div className="pc-popular-badge">Most popular</div>
+            <div className="pc-sub-label">For growing teams</div>
+            <div className="pc-plan-name pc-plan-name--accent" key={tier.name}>{tier.name}</div>
+            <p className="pc-desc" key={tier.desc}>{tier.desc}</p>
+
+            <div className="pc-price-row">
+              <span className="pc-currency">₹</span>
+              <span className="pc-amount pc-amount--accent" key={price}>{price.toLocaleString('en-IN')}</span>
+              <span className="pc-period">/ month</span>
+            </div>
+            <div className="pc-saving">
+              {annual
+                ? `Billed yearly · save ₹${saving.toLocaleString('en-IN')}`
+                : 'Switch to annual & save 25%'}
+            </div>
+
+            {/* Slider */}
+            <div className="pc-slider-wrap">
+              <div className="pc-tier-tabs">
+                {PAID_TIERS.map((t, i) => (
+                  <button
+                    key={t.name}
+                    className={`pc-tier-tab ${tierIdx === i ? 'active' : ''}`}
+                    onClick={() => setTierIdx(i)}
+                  >
+                    {t.name}
+                  </button>
+                ))}
+              </div>
+              <input
+                type="range"
+                min="0" max="2" step="1"
+                value={tierIdx}
+                onChange={e => setTierIdx(Number(e.target.value))}
+                className="pc-range"
+                style={{ '--pct': `${(tierIdx / 2) * 100}%` }}
+              />
+            </div>
+
+            <a href="https://dashboard.blogy.in/signin" target="_blank" rel="noopener noreferrer" className="pc-cta pc-cta-primary">
+              Get {tier.name}
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+            </a>
+
+            <ul className="pc-features" key={tier.name + '-feats'}>
+              {tier.features.map((f, i) => (
+                <li key={i} className="pc-feat-ok" style={{ animationDelay: `${i * 35}ms` }}>
+                  <CheckIcon /><span>{f}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
 
-        <p className="pricing-note">All plans include a 7-day money-back guarantee. No hidden fees. Cancel anytime.</p>
+        {/* Enterprise banner */}
+        <div className="pc-enterprise">
+          <div className="pc-ent-left">
+            <div className="pc-ent-icon">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 21h18M5 21V7l7-4 7 4v14"/><path d="M9 9h.01M9 13h.01M9 17h.01M15 9h.01M15 13h.01M15 17h.01"/>
+              </svg>
+            </div>
+            <div>
+              <div className="pc-ent-label">Enterprise</div>
+              <div className="pc-ent-title">Running multiple brands or sites?</div>
+              <p className="pc-ent-desc">Custom volumes, SSO, DPA, audit logs, and a dedicated pod of SEO strategists.</p>
+            </div>
+          </div>
+          <div className="pc-ent-right">
+            <div className="pc-ent-stats">
+              <div><strong>Unlimited</strong><span>blogs + pages</span></div>
+              <div><strong>SSO</strong><span>+ role permissions</span></div>
+              <div><strong>Dedicated</strong><span>success pod</span></div>
+            </div>
+            <a href="mailto:hello@blogy.in" className="pc-cta pc-cta-primary">
+              Let's talk
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+            </a>
+          </div>
+        </div>
+
+        <p className="pricing-note">7-day money-back guarantee · GST invoices · Cancel anytime</p>
       </div>
     </section>
   );

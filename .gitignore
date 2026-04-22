@@ -1,4 +1,6 @@
-node_modulesbuild
+node_modules
+build
+.DS_Store
 .env
 .env.local
 .env.*.local
