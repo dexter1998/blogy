@@ -10,10 +10,11 @@ const NAV_LINKS = [
 ];
 
 const PRODUCTS = [
-  { label: 'Auto Blogging',     href: 'https://dashboard.blogy.in', desc: 'Fully automated blog publishing' },
-  { label: 'SEO Growth Engine', href: 'https://dashboard.blogy.in', desc: 'AI-powered keyword ranking' },
-  { label: 'Topic Discovery',   href: 'https://dashboard.blogy.in', desc: 'Find high-intent topics automatically' },
-  { label: 'Programmatic SEO',  href: 'https://dashboard.blogy.in', desc: 'Scale to thousands of pages' },
+  { label: 'Auto Blogging',          href: 'https://dashboard.blogy.in', desc: 'Fully automated blog publishing', internal: false },
+  { label: 'SEO Growth Engine',      href: 'https://dashboard.blogy.in', desc: 'AI-powered keyword ranking', internal: false },
+  { label: 'Topic Discovery',        href: 'https://dashboard.blogy.in', desc: 'Find high-intent topics automatically', internal: false },
+  { label: 'Programmatic SEO',       href: 'https://dashboard.blogy.in', desc: 'Scale to thousands of pages', internal: false },
+  { label: 'Name Generator',         href: '/startup-name-generator', desc: 'Brand names for any niche, instantly', internal: true },
 ];
 
 const RESOURCES = [
@@ -72,12 +73,16 @@ export default function Navbar() {
           <nav className="navbar-nav">
             <Dropdown label="Products">
               <div className="dropdown-grid">
-                {PRODUCTS.map(p => (
-                  <a key={p.label} href={p.href} className="dropdown-item rich">
-                    <span className="dropdown-item-label">{p.label}</span>
-                    <span className="dropdown-item-desc">{p.desc}</span>
-                  </a>
-                ))}
+                {PRODUCTS.map(p => p.internal
+                  ? <Link key={p.label} to={p.href} className="dropdown-item rich">
+                      <span className="dropdown-item-label">{p.label}</span>
+                      <span className="dropdown-item-desc">{p.desc}</span>
+                    </Link>
+                  : <a key={p.label} href={p.href} className="dropdown-item rich">
+                      <span className="dropdown-item-label">{p.label}</span>
+                      <span className="dropdown-item-desc">{p.desc}</span>
+                    </a>
+                )}
               </div>
             </Dropdown>
 
@@ -117,7 +122,10 @@ export default function Navbar() {
           <div className="mobile-menu">
             <div className="mobile-section">
               <div className="mobile-heading">Products</div>
-              {PRODUCTS.map(p => <a key={p.label} href={p.href} className="mobile-link">{p.label}</a>)}
+              {PRODUCTS.map(p => p.internal
+                ? <Link key={p.label} to={p.href} className="mobile-link" onClick={() => setMobileOpen(false)}>{p.label}</Link>
+                : <a key={p.label} href={p.href} className="mobile-link">{p.label}</a>
+              )}
             </div>
             {NAV_LINKS.map(link => (
               <a key={link.label} href={link.href} className="mobile-link" onClick={() => setMobileOpen(false)}>{link.label}</a>

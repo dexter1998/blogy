@@ -20,6 +20,7 @@ import CTABanner from './components/CTABanner';
 import Footer from './components/Footer';
 import StartupNamesHub from './pages/StartupNamesHub';
 import StartupNamesCategory from './pages/StartupNamesCategory';
+import StartupNameGenerator from './pages/StartupNameGenerator';
 import SEOHead from './components/SEOHead';
 
 function LandingPage() {
@@ -58,6 +59,7 @@ function App() {
           <Route path="/" element={<LandingPage />} />
           <Route path="/startup-names" element={<StartupNamesHub />} />
           <Route path="/startup-names/:slug" element={<StartupNamesCategory />} />
+          <Route path="/startup-name-generator" element={<StartupNameGenerator />} />
         </Routes>
         <Footer />
       </BrowserRouter>
