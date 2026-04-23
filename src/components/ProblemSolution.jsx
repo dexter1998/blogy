@@ -1,6 +1,13 @@
 import './ProblemSolution.css';
 
 const SI = 'https://cdn.simpleicons.org';
+const L = {
+  chatgpt:    '/logos/chatgpt.png',
+  claude:     '/logos/claude.png',
+  ahrefs:     '/logos/ahrefs.png',
+  canva:      '/logos/canva.png',
+  photoshop:  '/logos/photoshop.png',
+};
 
 const PROBLEMS = [
   {
@@ -8,13 +15,13 @@ const PROBLEMS = [
     text: (
       <>
         Monthly subscriptions for{' '}
-        <img src={`${SI}/ahrefs`} alt="Ahrefs" className="ps-brand-icon" />
+        <img src={L.ahrefs} alt="Ahrefs" className="ps-brand-icon" />
         {' '}<strong>Ahrefs</strong>,{' '}
         <img src={`${SI}/semrush`} alt="SEMrush" className="ps-brand-icon" />
         {' '}<strong>SEMrush</strong>,{' '}
-        <img src={`${SI}/canva`} alt="Canva" className="ps-brand-icon" />
+        <img src={L.canva} alt="Canva" className="ps-brand-icon" />
         {' '}<strong>Canva</strong> &amp;{' '}
-        <img src={`${SI}/adobephotoshop`} alt="Photoshop" className="ps-brand-icon" />
+        <img src={L.photoshop} alt="Photoshop" className="ps-brand-icon" />
         {' '}<strong>Photoshop</strong> eat up{' '}
         <span className="ps-red">₹30,000+ of marketing budget</span> with nothing to show.
       </>
@@ -25,9 +32,9 @@ const PROBLEMS = [
     text: (
       <>
         Switching between{' '}
-        <img src={`${SI}/openai`} alt="ChatGPT" className="ps-brand-icon" />
+        <img src={L.chatgpt} alt="ChatGPT" className="ps-brand-icon" />
         {' '}<strong>ChatGPT</strong>,{' '}
-        <img src={`${SI}/ahrefs`} alt="Ahrefs" className="ps-brand-icon" />
+        <img src={L.ahrefs} alt="Ahrefs" className="ps-brand-icon" />
         {' '}<strong>keyword tools</strong>, and your CMS —{' '}
         <span className="ps-red">losing hours every week to tool overload.</span>
       </>
@@ -40,7 +47,7 @@ const PROBLEMS = [
         <span className="ps-red">Hours spent learning</span>{' '}
         <img src={`${SI}/semrush`} alt="SEMrush" className="ps-brand-icon" />
         {' '}<strong>SEMrush</strong> &amp;{' '}
-        <img src={`${SI}/ahrefs`} alt="Ahrefs" className="ps-brand-icon" />
+        <img src={L.ahrefs} alt="Ahrefs" className="ps-brand-icon" />
         {' '}<strong>Ahrefs</strong> that still don't publish content automatically to your site.
       </>
     ),
@@ -50,7 +57,7 @@ const PROBLEMS = [
     text: (
       <>
         Content gets created in{' '}
-        <img src={`${SI}/openai`} alt="ChatGPT" className="ps-brand-icon" />
+        <img src={L.chatgpt} alt="ChatGPT" className="ps-brand-icon" />
         {' '}<strong>ChatGPT</strong>… but{' '}
         <span className="ps-red">never compounds</span> — no internal linking, no scaling system, no traffic flywheel.
       </>

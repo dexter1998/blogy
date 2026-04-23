@@ -11,10 +11,10 @@ const KEYWORDS = [
 
 const SI = 'https://cdn.simpleicons.org';
 const AI_LOGOS = [
-  { slug: 'openai',       name: 'ChatGPT',    bg: '#10a37f' },
-  { slug: 'anthropic',    name: 'Claude',     bg: '#d97757' },
-  { slug: 'perplexity',   name: 'Perplexity', bg: '#1c1c2e' },
-  { slug: 'googlegemini', name: 'Gemini',     bg: 'linear-gradient(135deg, #4285F4 0%, #EA4335 100%)' },
+  { src: '/logos/chatgpt.png',    name: 'ChatGPT',    local: true },
+  { src: '/logos/claude.png',     name: 'Claude',     local: true },
+  { src: '/logos/perplexity.png', name: 'Perplexity', local: true },
+  { slug: 'googlegemini', name: 'Gemini', bg: 'linear-gradient(135deg, #4285F4 0%, #EA4335 100%)', local: false },
 ];
 
 const FULL_TEXT =
@@ -70,20 +70,12 @@ export default function Hero() {
             <span className="logo-spinner-track">
               {AI_LOGOS.map((logo, i) => (
                 <span key={i} className="logo-spinner-slide" style={{ animationDelay: `${i * 3}s` }}>
-                  <span style={{
-                    width: '72%', height: '72%',
-                    background: logo.bg,
-                    borderRadius: 12,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    padding: '18%',
-                    boxSizing: 'border-box',
-                  }}>
-                    <img
-                      src={`${SI}/${logo.slug}/white`}
-                      alt={logo.name}
-                      style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-                    />
-                  </span>
+                  {logo.local
+                    ? <img src={logo.src} alt={logo.name} style={{ width: '78%', height: '78%', objectFit: 'contain', borderRadius: 14 }} />
+                    : <span style={{ width: '72%', height: '72%', background: logo.bg, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '18%', boxSizing: 'border-box' }}>
+                        <img src={`${SI}/${logo.slug}/white`} alt={logo.name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                      </span>
+                  }
                 </span>
               ))}
             </span>
