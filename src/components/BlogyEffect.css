@@ -47,11 +47,13 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  transform: rotate(var(--tilt, 0deg));
+  transition: transform 0.3s ease, border-color 0.2s, box-shadow 0.3s ease;
 }
 .be-card:hover {
   border-color: var(--teal-300);
   box-shadow: var(--shadow-lg);
+  transform: rotate(0deg) scale(1.02);
 }
 .be-card--featured {
   border-color: var(--teal-400);
@@ -228,6 +230,24 @@
   transition: background 0.18s, transform 0.18s;
 }
 .be-btn:hover { background: var(--teal-700); transform: translateY(-1px); }
+
+/* Hover comment overlay */
+.be-hover-comment {
+  font-size: 0.82rem;
+  font-style: italic;
+  color: var(--gray-500);
+  border-top: 1px solid var(--gray-100);
+  padding-top: 12px;
+  margin-top: -4px;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+  pointer-events: none;
+}
+.be-card:hover .be-hover-comment {
+  opacity: 1;
+  transform: translateY(0);
+}
 
 @media (max-width: 720px) {
   .be-grid { grid-template-columns: 1fr; }

@@ -83,15 +83,10 @@
 .int-pill-icon {
   width: 28px;
   height: 28px;
-  border-radius: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #fff;
-  font-weight: 800;
-  font-size: 0.68rem;
   flex-shrink: 0;
-  font-family: var(--font-display);
 }
 .int-pill-name {
   font-size: 0.875rem;

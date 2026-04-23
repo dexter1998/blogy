@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { HelmetProvider } from 'react-helmet-async';
 import './index.css';
@@ -7,14 +8,15 @@ import Marquee from './components/Marquee';
 import ProblemSolution from './components/ProblemSolution';
 import GetDiscovered from './components/GetDiscovered';
 import Languages from './components/Languages';
-import Stats from './components/Stats';
-import Features from './components/Features';
+import EverythingYouNeed from './components/EverythingYouNeed';
 import HowItWorks from './components/HowItWorks';
 import BlogyEffect from './components/BlogyEffect';
+import SampleBlogs from './components/SampleBlogs';
 import Integrations from './components/Integrations';
 import Testimonials from './components/Testimonials';
 import Pricing from './components/Pricing';
 import Blogs from './components/Blogs';
+import AsSeenOn from './components/AsSeenOn';
 import FAQ from './components/FAQ';
 import CTABanner from './components/CTABanner';
 import Footer from './components/Footer';
@@ -36,14 +38,15 @@ function LandingPage() {
       <ProblemSolution />
       <GetDiscovered />
       <Languages />
-      <Stats />
-      <Features />
+      <EverythingYouNeed />
       <HowItWorks />
       <BlogyEffect />
+      <SampleBlogs />
       <Integrations />
       <Testimonials />
       <Pricing />
       <Blogs />
+      <AsSeenOn />
       <FAQ />
       <CTABanner />
     </main>
@@ -51,10 +54,16 @@ function LandingPage() {
 }
 
 function App() {
+  const [dark, setDark] = useState(false);
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+  }, [dark]);
+
   return (
     <HelmetProvider>
       <BrowserRouter>
-        <Navbar />
+        <Navbar dark={dark} setDark={setDark} />
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/startup-names" element={<StartupNamesHub />} />

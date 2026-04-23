@@ -360,6 +360,24 @@
   gap: 16px;
   align-items: flex-start;
 }
+.pc-ent-features {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 20px;
+}
+.pc-ent-feat {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.82rem;
+  color: rgba(255,255,255,0.85);
+}
+.pc-ent-feat-icon {
+  display: flex;
+  align-items: center;
+  color: var(--teal-300);
+  flex-shrink: 0;
+}
 .pc-ent-stats {
   display: flex;
   gap: 20px;

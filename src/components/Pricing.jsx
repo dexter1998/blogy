@@ -193,15 +193,25 @@ export default function Pricing() {
             <div>
               <div className="pc-ent-label">Enterprise</div>
               <div className="pc-ent-title">Running multiple brands or sites?</div>
-              <p className="pc-ent-desc">Custom volumes, SSO, DPA, audit logs, and a dedicated pod of SEO strategists.</p>
+              <p className="pc-ent-desc">Everything you need to scale content across your entire portfolio — with a dedicated expert by your side.</p>
             </div>
           </div>
           <div className="pc-ent-right">
-            <div className="pc-ent-stats">
-              <div><strong>Unlimited</strong><span>blogs + pages</span></div>
-              <div><strong>SSO</strong><span>+ role permissions</span></div>
-              <div><strong>Dedicated</strong><span>success pod</span></div>
-            </div>
+            <ul className="pc-ent-features">
+              {[
+                { icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>, text: 'Multiple websites support' },
+                { icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M4 6h16M4 10h16M4 14h10"/></svg>, text: 'Unlimited pSEO pages' },
+                { icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>, text: 'Unlimited backlinks' },
+                { icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>, text: 'Dedicated SEO expert (RM)' },
+                { icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>, text: 'Customizations on demand' },
+                { icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.89 8.81a19.79 19.79 0 01-3.07-8.63A2 2 0 012.81 0h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L7.09 7.91a16 16 0 006 6l.97-.97a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>, text: '24/7 priority technical support' },
+              ].map((item, i) => (
+                <li key={i} className="pc-ent-feat">
+                  <span className="pc-ent-feat-icon">{item.icon}</span>
+                  {item.text}
+                </li>
+              ))}
+            </ul>
             <a href="mailto:hello@blogy.in" className="pc-cta pc-cta-primary">
               Let's talk
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14M13 5l7 7-7 7"/></svg>

@@ -1,33 +1,58 @@
 import './ProblemSolution.css';
 
+const SI = 'https://cdn.simpleicons.org';
+
 const PROBLEMS = [
   {
-    avatar: 'A',
-    color: '#a78bfa',
+    avatar: 'https://randomuser.me/api/portraits/women/44.jpg',
     text: (
       <>
-        Monthly subscriptions for <strong>Ahrefs</strong>, <strong>Canva</strong>, ChatGPT etc. eat up{' '}
+        Monthly subscriptions for{' '}
+        <img src={`${SI}/ahrefs`} alt="Ahrefs" className="ps-brand-icon" />
+        {' '}<strong>Ahrefs</strong>,{' '}
+        <img src={`${SI}/semrush`} alt="SEMrush" className="ps-brand-icon" />
+        {' '}<strong>SEMrush</strong>,{' '}
+        <img src={`${SI}/canva`} alt="Canva" className="ps-brand-icon" />
+        {' '}<strong>Canva</strong> &amp;{' '}
+        <img src={`${SI}/adobephotoshop`} alt="Photoshop" className="ps-brand-icon" />
+        {' '}<strong>Photoshop</strong> eat up{' '}
         <span className="ps-red">₹30,000+ of marketing budget</span> with nothing to show.
       </>
     ),
   },
   {
-    avatar: 'S',
-    color: '#34d399',
+    avatar: 'https://randomuser.me/api/portraits/men/32.jpg',
     text: (
       <>
-        Switching between <strong>ChatGPT</strong>, keyword tools, and your CMS —{' '}
+        Switching between{' '}
+        <img src={`${SI}/openai`} alt="ChatGPT" className="ps-brand-icon" />
+        {' '}<strong>ChatGPT</strong>,{' '}
+        <img src={`${SI}/ahrefs`} alt="Ahrefs" className="ps-brand-icon" />
+        {' '}<strong>keyword tools</strong>, and your CMS —{' '}
         <span className="ps-red">losing hours every week to tool overload.</span>
       </>
     ),
   },
   {
-    avatar: 'M',
-    color: '#fbbf24',
+    avatar: 'https://randomuser.me/api/portraits/women/68.jpg',
     text: (
       <>
-        <span className="ps-red">Hours spent learning SEO tools</span> that still don't publish content
-        automatically to your site.
+        <span className="ps-red">Hours spent learning</span>{' '}
+        <img src={`${SI}/semrush`} alt="SEMrush" className="ps-brand-icon" />
+        {' '}<strong>SEMrush</strong> &amp;{' '}
+        <img src={`${SI}/ahrefs`} alt="Ahrefs" className="ps-brand-icon" />
+        {' '}<strong>Ahrefs</strong> that still don't publish content automatically to your site.
+      </>
+    ),
+  },
+  {
+    avatar: 'https://randomuser.me/api/portraits/men/75.jpg',
+    text: (
+      <>
+        Content gets created in{' '}
+        <img src={`${SI}/openai`} alt="ChatGPT" className="ps-brand-icon" />
+        {' '}<strong>ChatGPT</strong>… but{' '}
+        <span className="ps-red">never compounds</span> — no internal linking, no scaling system, no traffic flywheel.
       </>
     ),
   },
@@ -56,9 +81,11 @@ export default function ProblemSolution() {
             </h2>
             <div className="ps-problems">
               {PROBLEMS.map((p, i) => (
-                <div key={i} className="ps-problem">
-                  <div className="ps-avatar" style={{ background: p.color }}>{p.avatar}</div>
-                  <p>{p.text}</p>
+                <div key={i} className="ps-chat-row">
+                  <img src={p.avatar} alt="" className="ps-chat-avatar" />
+                  <div className="ps-chat-bubble">
+                    <p>{p.text}</p>
+                  </div>
                 </div>
               ))}
             </div>
@@ -79,7 +106,7 @@ export default function ProblemSolution() {
               <ul className="ps-features">
                 {SOLUTIONS.map((s, i) => (
                   <li key={i}>
-                    <svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="#fff" strokeWidth="2.5">
+                    <svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2.5">
                       <path d="M4 10l5 5 8-8"/>
                     </svg>
                     {s}

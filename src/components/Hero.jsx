@@ -9,29 +9,12 @@ const KEYWORDS = [
   { kw: 'ai blog writer india',   vol: '2.8K' },
 ];
 
+const SI = 'https://cdn.simpleicons.org';
 const AI_LOGOS = [
-  /* Google */
-  <svg key="g" viewBox="0 0 48 48" width="54%" height="54%">
-    <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
-    <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
-    <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
-    <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
-  </svg>,
-  /* ChatGPT */
-  <svg key="c" viewBox="0 0 41 41" width="54%" height="54%" fill="none">
-    <path d="M37.532 16.87a9.963 9.963 0 0 0-.856-8.184 10.078 10.078 0 0 0-10.855-4.835 9.964 9.964 0 0 0-6.247-3.592 10.079 10.079 0 0 0-11.847 4.964 9.964 9.964 0 0 0-6.685 3.377 10.079 10.079 0 0 0-1.339 11.725 9.964 9.964 0 0 0 .856 8.185 10.079 10.079 0 0 0 10.855 4.835 9.965 9.965 0 0 0 6.247 3.592 10.078 10.078 0 0 0 11.847-4.965 9.965 9.965 0 0 0 6.685-3.376 10.079 10.079 0 0 0 1.339-11.726zm-25.134 8.6a3.733 3.733 0 0 1-2.405-.872l.084-.048 3.992-2.304a.658.658 0 0 0 .33-.576v-5.631l1.688.974v4.621a3.741 3.741 0 0 1-3.689 3.836z" fill="#10a37f"/>
-  </svg>,
-  /* Claude */
-  <svg key="cl" viewBox="0 0 100 100" width="54%" height="54%" fill="none">
-    <rect width="100" height="100" rx="22" fill="#D97757"/>
-    <path d="M30 62 L42 28 L50 28 L62 62 L55 62 L52 54 L40 54 L37 62 Z M42 47 L50 47 L46 35 Z M66 62 L66 28 L72 28 L72 62 Z" fill="#fff"/>
-  </svg>,
-  /* Perplexity */
-  <svg key="p" viewBox="0 0 100 100" width="54%" height="54%" fill="none">
-    <rect width="100" height="100" rx="20" fill="#1c1c2e"/>
-    <path d="M50 10 L25 30 L50 30 L50 50 L25 50 L25 90 L37 90 L37 62 L63 62 L63 90 L75 90 L75 50 L50 50 L50 30 L75 30 Z" fill="#20c5b5"/>
-    <path d="M18 30 L50 12 L82 30" stroke="#20c5b5" strokeWidth="4" fill="none"/>
-  </svg>,
+  { slug: 'openai',       name: 'ChatGPT',    bg: '#10a37f' },
+  { slug: 'anthropic',    name: 'Claude',     bg: '#d97757' },
+  { slug: 'perplexity',   name: 'Perplexity', bg: '#1c1c2e' },
+  { slug: 'googlegemini', name: 'Gemini',     bg: 'linear-gradient(135deg, #4285F4 0%, #EA4335 100%)' },
 ];
 
 const FULL_TEXT =
@@ -66,7 +49,8 @@ export default function Hero() {
   return (
     <section id="home" className="hero">
       {/* dot-grid background */}
-      <div className="hero-dots" aria-hidden="true" />
+      <div className="hero-grid" aria-hidden="true" />
+      <div className="hero-glow" aria-hidden="true" />
 
       <div className="container hero-container">
         {/* Badge */}
@@ -86,7 +70,20 @@ export default function Hero() {
             <span className="logo-spinner-track">
               {AI_LOGOS.map((logo, i) => (
                 <span key={i} className="logo-spinner-slide" style={{ animationDelay: `${i * 3}s` }}>
-                  {logo}
+                  <span style={{
+                    width: '72%', height: '72%',
+                    background: logo.bg,
+                    borderRadius: 12,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    padding: '18%',
+                    boxSizing: 'border-box',
+                  }}>
+                    <img
+                      src={`${SI}/${logo.slug}/white`}
+                      alt={logo.name}
+                      style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                    />
+                  </span>
                 </span>
               ))}
             </span>
@@ -114,8 +111,13 @@ export default function Hero() {
         {/* Social proof */}
         <div className="hero-proof animate-fade-up delay-3">
           <div className="avatars">
-            {['A', 'R', 'S', 'M'].map((l, i) => (
-              <div key={i} className={`avatar av${i + 1}`}>{l}</div>
+            {[
+              'https://randomuser.me/api/portraits/men/32.jpg',
+              'https://randomuser.me/api/portraits/women/44.jpg',
+              'https://randomuser.me/api/portraits/men/86.jpg',
+              'https://randomuser.me/api/portraits/women/63.jpg',
+            ].map((src, i) => (
+              <img key={i} src={src} alt="" className={`avatar av${i + 1}`} style={{ objectFit: 'cover' }} />
             ))}
           </div>
           <div>

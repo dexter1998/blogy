@@ -20,6 +20,7 @@ function MiniChart({ data, color = 'var(--teal-500)' }) {
 
 const CARDS = [
   {
+    tilt: -2.5,
     stats: [
       { value: '15.7K', label: 'Impressions', highlight: true },
       { value: '6.42M', label: 'Total Views', highlight: true },
@@ -31,8 +32,10 @@ const CARDS = [
     initial: 'R',
     color: '#7c3aed',
     featured: false,
+    comment: '"Our blog traffic tripled in 3 months — without hiring a single writer."',
   },
   {
+    tilt: 1.8,
     quote: 'The biggest visible shift: our brand started getting picked up in AI answers',
     aiCitations: { overview: 423, chatgpt: 60 },
     dr: 54,
@@ -41,8 +44,10 @@ const CARDS = [
     initial: 'A',
     color: '#0d9488',
     featured: true,
+    comment: '"AI citations went from 0 to 423 — Blogy changed our entire content strategy."',
   },
   {
+    tilt: -1.8,
     stats: [
       { value: '5.1K', label: 'Clicks', highlight: true },
       { value: '263K', label: 'Views', highlight: true },
@@ -54,8 +59,10 @@ const CARDS = [
     initial: 'S',
     color: '#059669',
     featured: false,
+    comment: '"We went from 0 to 5K monthly clicks purely through Blogy — no paid ads."',
   },
   {
+    tilt: 2.2,
     stats: [
       { value: '4.95K', label: 'Sessions', highlight: true },
       { value: '878K', label: 'Users', highlight: true },
@@ -67,6 +74,7 @@ const CARDS = [
     initial: 'A',
     color: '#f97316',
     featured: false,
+    comment: '"Blogy built a content flywheel we could not have created manually."',
   },
 ];
 
@@ -85,9 +93,12 @@ export default function BlogyEffect() {
         {/* Grid */}
         <div className="be-grid">
           {CARDS.map((c, i) => (
-            <div key={i} className={`be-card ${c.featured ? 'be-card--featured' : ''}`}>
+            <div
+              key={i}
+              className={`be-card ${c.featured ? 'be-card--featured' : ''}`}
+              style={{ '--tilt': `${c.tilt}deg` }}
+            >
               {c.featured ? (
-                /* Featured quote card */
                 <>
                   <div className="be-ai-row">
                     <div className="be-ai-block">
@@ -116,11 +127,11 @@ export default function BlogyEffect() {
                       <div className="be-name">{c.name}</div>
                       <div className="be-role">{c.role}</div>
                     </div>
-                    <button type="button" className="be-read">Read story →</button>
+                    <a href="https://dashboard.blogy.in" target="_blank" rel="noopener noreferrer" className="be-read">Get started →</a>
                   </div>
+                  <div className="be-hover-comment">{c.comment}</div>
                 </>
               ) : (
-                /* Stats + chart card */
                 <>
                   <div className="be-stats-row">
                     {c.stats.map((s, j) => (
@@ -142,6 +153,7 @@ export default function BlogyEffect() {
                       <div className="be-role">{c.role}</div>
                     </div>
                   </div>
+                  <div className="be-hover-comment">{c.comment}</div>
                 </>
               )}
             </div>

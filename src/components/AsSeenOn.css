@@ -1,0 +1,45 @@
+.aso-section {
+  padding: 40px 0;
+  background: #fff;
+  border-top: 1px solid var(--gray-100);
+  border-bottom: 1px solid var(--gray-100);
+}
+
+.aso-label {
+  text-align: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--gray-400);
+  margin-bottom: 20px;
+}
+
+.aso-strip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 36px;
+  flex-wrap: wrap;
+}
+
+.aso-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  opacity: 0.75;
+  transition: opacity 0.18s;
+}
+.aso-item:hover { opacity: 1; }
+
+.aso-name {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--gray-600);
+  letter-spacing: -0.01em;
+}
+
+@media (max-width: 600px) {
+  .aso-strip { gap: 20px; }
+  .aso-name { font-size: 0.78rem; }
+}
