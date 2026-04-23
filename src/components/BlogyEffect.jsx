@@ -116,7 +116,7 @@ export default function BlogyEffect() {
                       <div className="be-name">{c.name}</div>
                       <div className="be-role">{c.role}</div>
                     </div>
-                    <a href="#" className="be-read">Read story →</a>
+                    <button type="button" className="be-read">Read story →</button>
                   </div>
                 </>
               ) : (
