@@ -128,7 +128,13 @@ function ProductsDropdown() {
                   <span className="dropdown-item-desc">{p.desc}</span>
                 </span>
               </Link>
-            : <a key={p.label} href={p.href} className="dropdown-item dp-item-icon">
+            : <a
+                key={p.label}
+                href={p.href}
+                className="dropdown-item dp-item-icon"
+                data-analytics-event="cta_click_any"
+                data-analytics-source={`products_${p.label.toLowerCase().replace(/\s+/g, '_')}`}
+              >
                 <span className="dp-icon">{p.icon}</span>
                 <span className="dp-item-text">
                   <span className="dropdown-item-label">{p.label}</span>
@@ -219,7 +225,7 @@ export default function Navbar({ dark, setDark }) {
       <div className={`navbar ${scrolled ? 'scrolled' : ''}`}>
         <div className="navbar-inner">
           {/* Logo */}
-          <a href="/" className="navbar-logo">
+          <a href="/" className="navbar-logo" data-analytics-source="navbar_logo">
             <img src="./favicon.svg" alt="Blogy" width="28" height="28" />
             <span>Blogy</span>
           </a>
@@ -243,8 +249,22 @@ export default function Navbar({ dark, setDark }) {
             >
               {dark ? <SunIcon /> : <MoonIcon />}
             </button>
-            <a href="https://dashboard.blogy.in/login" className="btn-ghost-nav">Sign In</a>
-            <a href="https://dashboard.blogy.in/signup" className="btn-primary-nav">Get Started</a>
+            <a
+              href="https://dashboard.blogy.in/login"
+              className="btn-ghost-nav"
+              data-analytics-event="cta_click_any"
+              data-analytics-source="navbar_signin"
+            >
+              Sign In
+            </a>
+            <a
+              href="https://dashboard.blogy.in/signup"
+              className="btn-primary-nav"
+              data-analytics-event="cta_click_any"
+              data-analytics-source="navbar_get_started"
+            >
+              Get Started
+            </a>
           </div>
 
           {/* Mobile hamburger */}
@@ -264,7 +284,7 @@ export default function Navbar({ dark, setDark }) {
               <div className="mobile-heading">Products</div>
               {PRODUCTS.map(p => p.internal
                 ? <Link key={p.label} to={p.href} className="mobile-link" onClick={() => setMobileOpen(false)}>{p.label}</Link>
-                : <a key={p.label} href={p.href} className="mobile-link">{p.label}</a>
+                : <a key={p.label} href={p.href} className="mobile-link" data-analytics-event="cta_click_any" data-analytics-source={`mobile_product_${p.label.toLowerCase().replace(/\s+/g, '_')}`}>{p.label}</a>
               )}
             </div>
             {NAV_LINKS.map(link => (
@@ -283,8 +303,22 @@ export default function Navbar({ dark, setDark }) {
                 {dark ? <SunIcon /> : <MoonIcon />}
                 {dark ? 'Light mode' : 'Dark mode'}
               </button>
-              <a href="https://dashboard.blogy.in/login" className="btn-ghost-nav w-full">Sign In</a>
-              <a href="https://dashboard.blogy.in/signup" className="btn-primary-nav w-full">Get Started Free</a>
+              <a
+                href="https://dashboard.blogy.in/login"
+                className="btn-ghost-nav w-full"
+                data-analytics-event="cta_click_any"
+                data-analytics-source="mobile_signin"
+              >
+                Sign In
+              </a>
+              <a
+                href="https://dashboard.blogy.in/signup"
+                className="btn-primary-nav w-full"
+                data-analytics-event="cta_click_any"
+                data-analytics-source="mobile_get_started"
+              >
+                Get Started Free
+              </a>
             </div>
           </div>
         )}

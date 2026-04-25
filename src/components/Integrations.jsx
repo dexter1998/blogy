@@ -58,6 +58,8 @@ export default function Integrations() {
               target="_blank"
               rel="noopener noreferrer"
               className="int-cta"
+              data-analytics-event="cta_click_any"
+              data-analytics-source="integrations_cta"
             >
               Start for Free →
             </a>

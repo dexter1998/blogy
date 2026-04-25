@@ -24,6 +24,8 @@ import StartupNamesHub from './pages/StartupNamesHub';
 import StartupNamesCategory from './pages/StartupNamesCategory';
 import StartupNameGenerator from './pages/StartupNameGenerator';
 import SEOHead from './components/SEOHead';
+import NotFound from './components/NotFound';
+import { AnalyticsTracker } from './lib/analytics';
 
 function LandingPage() {
   return (
@@ -63,12 +65,14 @@ function App() {
   return (
     <HelmetProvider>
       <BrowserRouter>
+        <AnalyticsTracker />
         <Navbar dark={dark} setDark={setDark} />
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/startup-names" element={<StartupNamesHub />} />
           <Route path="/startup-names/:slug" element={<StartupNamesCategory />} />
           <Route path="/startup-name-generator" element={<StartupNameGenerator />} />
+          <Route path="*" element={<NotFound />} />
         </Routes>
         <Footer />
       </BrowserRouter>

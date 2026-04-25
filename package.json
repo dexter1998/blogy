@@ -15,7 +15,9 @@
     "web-vitals": "^2.1.4"
   },
   "scripts": {
+    "prestart": "node scripts/generate-runtime-env.js",
     "start": "react-scripts start",
+    "prebuild": "node scripts/generate-runtime-env.js",
     "build": "react-scripts build",
     "postbuild": "node scripts/generate-sitemap.js",
     "test": "react-scripts test",

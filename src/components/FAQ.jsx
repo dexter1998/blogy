@@ -37,7 +37,14 @@ export default function FAQ() {
           <div className="faq-left">
             <h2 className="faq-heading">Have a <span className="text-teal">question?</span></h2>
             <p className="faq-sub">We're happy to chat—find quick answers here, or get in touch if you need more detail.</p>
-            <a href="https://dashboard.blogy.in/signup" className="btn-primary faq-cta" target="_blank" rel="noopener noreferrer">
+            <a
+              href="https://dashboard.blogy.in/signup"
+              className="btn-primary faq-cta"
+              target="_blank"
+              rel="noopener noreferrer"
+              data-analytics-event="cta_click_any"
+              data-analytics-source="faq_cta"
+            >
               Get Started Free
             </a>
           </div>

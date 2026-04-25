@@ -113,7 +113,14 @@ export default function Pricing() {
               <span className="pc-amount">0</span>
               <span className="pc-period">/ forever</span>
             </div>
-            <a href="https://dashboard.blogy.in/signin" target="_blank" rel="noopener noreferrer" className="pc-cta pc-cta-ghost">
+            <a
+              href="https://dashboard.blogy.in/signin"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="pc-cta pc-cta-ghost"
+              data-analytics-event="cta_click_any"
+              data-analytics-source="pricing_free_cta"
+            >
               Start free
             </a>
             <ul className="pc-features">
@@ -167,7 +174,14 @@ export default function Pricing() {
               />
             </div>
 
-            <a href="https://dashboard.blogy.in/signin" target="_blank" rel="noopener noreferrer" className="pc-cta pc-cta-primary">
+            <a
+              href="https://dashboard.blogy.in/signin"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="pc-cta pc-cta-primary"
+              data-analytics-event="cta_click_any"
+              data-analytics-source={`pricing_${tier.name.toLowerCase()}_cta`}
+            >
               Get {tier.name}
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
             </a>
@@ -212,7 +226,12 @@ export default function Pricing() {
                 </li>
               ))}
             </ul>
-            <a href="mailto:hello@blogy.in" className="pc-cta pc-cta-primary">
+            <a
+              href="mailto:hello@blogy.in"
+              className="pc-cta pc-cta-primary"
+              data-analytics-event="cta_click_any"
+              data-analytics-source="pricing_enterprise_cta"
+            >
               Let's talk
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
             </a>

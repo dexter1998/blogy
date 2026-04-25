@@ -65,7 +65,7 @@ export default function Footer() {
             <div key={section} className="footer-col">
               <div className="footer-col-title">{section}</div>
               {links.map(l => (
-                <a key={l.label} href={l.href} className="footer-link">{l.label}</a>
+                <a key={l.label} href={l.href} className="footer-link" data-analytics-source={`footer_${l.label.toLowerCase().replace(/\s+/g, '_')}`}>{l.label}</a>
               ))}
             </div>
           ))}

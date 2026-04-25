@@ -1,8 +1,20 @@
 import { useState } from 'react';
-import { useParams, Link, Navigate } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import data from '../data/startup-names.json';
 import SEOHead from '../components/SEOHead';
+import NotFound from '../components/NotFound';
 import './StartupNamesCategory.css';
+
+// ─── NAMECHEAP REFERRAL ───────────────────────────────────────────────────────
+// Update NAMECHEAP_REF_ID when you have your affiliate ID.
+// All "Check Domain" links update automatically — no other code changes needed.
+const NAMECHEAP_REF_ID = '';
+function getDomainURL(name) {
+  const domain = name.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const ref = NAMECHEAP_REF_ID ? `&clickID=${NAMECHEAP_REF_ID}` : '';
+  return `https://www.namecheap.com/domains/registration/results/?domain=${domain}.com${ref}`;
+}
+// ─────────────────────────────────────────────────────────────────────────────
 
 const WORKS_FOR_ICONS = {
   Businesses: '🏢', Apps: '📱', 'SaaS Tools': '☁️', Products: '📦',
@@ -40,7 +52,14 @@ function InlineCTA({ large }) {
         <p className="snc-cta-title">Found your name?</p>
         <p className="snc-cta-sub">Blogy can write your first 10 SEO blog posts in minutes.</p>
       </div>
-      <a href="https://dashboard.blogy.in" target="_blank" rel="noopener noreferrer" className="snc-cta-link">
+      <a
+        href="https://dashboard.blogy.in"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="snc-cta-link"
+        data-analytics-event="blog_cta_click"
+        data-analytics-source={large ? 'category_final_cta' : 'category_inline_cta'}
+      >
         Try Blogy Free →
       </a>
     </div>
@@ -100,7 +119,15 @@ function NameItem({ name, tagline, why, style }) {
     <div className="snc-name-item">
       <div className="snc-name-row">
         <span className="snc-name-text">{name}</span>
-        <span className="snc-domain-badge">Domain likely</span>
+        <a
+          className="snc-domain-badge snc-domain-link"
+          href={getDomainURL(name)}
+          target="_blank"
+          rel="noopener noreferrer"
+          title="Check domain availability on Namecheap"
+        >
+          🌐 Check Domain
+        </a>
         <span className={`snc-style-badge snc-style-${styleClass}`}>{style}</span>
       </div>
       {tagline && <p className="snc-name-tagline">"{tagline}"</p>}
@@ -164,7 +191,12 @@ function NameGenerator({ names }) {
           ))}
         </div>
       )}
-      <button className="snc-shuffle-btn" onClick={shuffle}>
+      <button
+        className="snc-shuffle-btn"
+        onClick={shuffle}
+        data-analytics-event="form_submit"
+        data-analytics-source="category_name_generator"
+      >
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
           <polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/>
           <polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/>
@@ -233,7 +265,7 @@ export default function StartupNamesCategory() {
   const { slug } = useParams();
   const cat = data.categories.find(c => c.slug === slug);
 
-  if (!cat) return <Navigate to="/startup-names" replace />;
+  if (!cat) return <NotFound />;
 
   const others      = data.categories.filter(c => c.slug !== slug);
   const total       = cat.name_groups.reduce((s, g) => s + g.names.length, 0);

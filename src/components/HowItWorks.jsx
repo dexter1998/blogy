@@ -24,6 +24,8 @@ export default function HowItWorks() {
               target="_blank"
               rel="noopener noreferrer"
               className="hiw-cta"
+              data-analytics-event="cta_click_any"
+              data-analytics-source="how_it_works_cta"
             >
               Try it yourself
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">

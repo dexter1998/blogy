@@ -120,7 +120,14 @@ export default function ProblemSolution() {
                   </li>
                 ))}
               </ul>
-              <a href="https://dashboard.blogy.in/signup" target="_blank" rel="noopener noreferrer" className="ps-card-cta">
+              <a
+                href="https://dashboard.blogy.in/signup"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="ps-card-cta"
+                data-analytics-event="cta_click_any"
+                data-analytics-source="problem_solution_cta"
+              >
                 Start for free →
               </a>
             </div>

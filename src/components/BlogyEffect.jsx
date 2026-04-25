@@ -127,7 +127,16 @@ export default function BlogyEffect() {
                       <div className="be-name">{c.name}</div>
                       <div className="be-role">{c.role}</div>
                     </div>
-                    <a href="https://dashboard.blogy.in" target="_blank" rel="noopener noreferrer" className="be-read">Get started →</a>
+                    <a
+                      href="https://dashboard.blogy.in"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="be-read"
+                      data-analytics-event="cta_click_any"
+                      data-analytics-source="blogy_effect_card_cta"
+                    >
+                      Get started →
+                    </a>
                   </div>
                   <div className="be-hover-comment">{c.comment}</div>
                 </>
@@ -161,7 +170,14 @@ export default function BlogyEffect() {
         </div>
 
         <div className="be-cta">
-          <a href="https://dashboard.blogy.in/signup" target="_blank" rel="noopener noreferrer" className="be-btn">
+          <a
+            href="https://dashboard.blogy.in/signup"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="be-btn"
+            data-analytics-event="cta_click_any"
+            data-analytics-source="blogy_effect_primary_cta"
+          >
             Start for Free →
           </a>
         </div>
