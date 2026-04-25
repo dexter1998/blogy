@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { HelmetProvider } from 'react-helmet-async';
 import './index.css';
@@ -20,12 +20,21 @@ import AsSeenOn from './components/AsSeenOn';
 import FAQ from './components/FAQ';
 import CTABanner from './components/CTABanner';
 import Footer from './components/Footer';
-import StartupNamesHub from './pages/StartupNamesHub';
-import StartupNamesCategory from './pages/StartupNamesCategory';
-import StartupNameGenerator from './pages/StartupNameGenerator';
 import SEOHead from './components/SEOHead';
 import NotFound from './components/NotFound';
 import { AnalyticsTracker } from './lib/analytics';
+
+const StartupNamesHub = lazy(() => import('./pages/StartupNamesHub'));
+const StartupNamesCategory = lazy(() => import('./pages/StartupNamesCategory'));
+const StartupNameGenerator = lazy(() => import('./pages/StartupNameGenerator'));
+
+function RouteLoader() {
+  return (
+    <main className="container" style={{ minHeight: '60vh', display: 'grid', placeItems: 'center', padding: '120px 0 80px' }}>
+      <div style={{ color: 'var(--gray-500)', fontSize: '0.95rem' }}>Loading…</div>
+    </main>
+  );
+}
 
 function LandingPage() {
   return (
@@ -67,13 +76,15 @@ function App() {
       <BrowserRouter>
         <AnalyticsTracker />
         <Navbar dark={dark} setDark={setDark} />
-        <Routes>
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/startup-names" element={<StartupNamesHub />} />
-          <Route path="/startup-names/:slug" element={<StartupNamesCategory />} />
-          <Route path="/startup-name-generator" element={<StartupNameGenerator />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+        <Suspense fallback={<RouteLoader />}>
+          <Routes>
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/startup-names" element={<StartupNamesHub />} />
+            <Route path="/startup-names/:slug" element={<StartupNamesCategory />} />
+            <Route path="/startup-name-generator" element={<StartupNameGenerator />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </Suspense>
         <Footer />
       </BrowserRouter>
     </HelmetProvider>

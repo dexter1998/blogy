@@ -1,22 +1,20 @@
 import './Integrations.css';
 
-const SI = 'https://cdn.simpleicons.org';
-
 const PLATFORMS = [
-  { name: 'WordPress',     slug: 'wordpress',    bg: '#f0f7ff' },
-  { name: 'Webflow',       slug: 'webflow',      bg: '#f0f0ff' },
-  { name: 'Shopify',       slug: 'shopify',      bg: '#f0fff5' },
-  { name: 'Notion',        slug: 'notion',       bg: '#fafafa' },
-  { name: 'HubSpot',       slug: 'hubspot',      bg: '#fff5f0' },
-  { name: 'Zapier',        slug: 'zapier',       bg: '#fff4f0' },
-  { name: 'Make',          slug: 'make',         bg: '#f8f0ff' },
-  { name: 'Airtable',      slug: 'airtable',     bg: '#f0faff' },
-  { name: 'Ghost',         slug: 'ghost',        bg: '#f5f5f5' },
-  { name: 'Wix',           slug: 'wix',          bg: '#fffbf0' },
-  { name: 'Slack',         slug: 'slack',        bg: '#fdf0ff' },
-  { name: 'Google Sheets', slug: 'googlesheets', bg: '#f0fff5' },
-  { name: 'Medium',        slug: 'medium',       bg: '#f5f5f5' },
-  { name: 'Contentful',    slug: 'contentful',   bg: '#f0f5ff' },
+  { name: 'WordPress',     mark: 'W',  tone: '#2563eb', bg: '#f0f7ff' },
+  { name: 'Webflow',       mark: 'WF', tone: '#4f46e5', bg: '#f0f0ff' },
+  { name: 'Shopify',       mark: 'S',  tone: '#16a34a', bg: '#f0fff5' },
+  { name: 'Notion',        mark: 'N',  tone: '#111827', bg: '#fafafa' },
+  { name: 'HubSpot',       mark: 'H',  tone: '#ea580c', bg: '#fff5f0' },
+  { name: 'Zapier',        mark: 'Z',  tone: '#f97316', bg: '#fff4f0' },
+  { name: 'Make',          mark: 'M',  tone: '#7c3aed', bg: '#f8f0ff' },
+  { name: 'Airtable',      mark: 'A',  tone: '#0891b2', bg: '#f0faff' },
+  { name: 'Ghost',         mark: 'G',  tone: '#111827', bg: '#f5f5f5' },
+  { name: 'Wix',           mark: 'W',  tone: '#ca8a04', bg: '#fffbf0' },
+  { name: 'Slack',         mark: 'S',  tone: '#c026d3', bg: '#fdf0ff' },
+  { name: 'Google Sheets', mark: 'GS', tone: '#16a34a', bg: '#f0fff5' },
+  { name: 'Medium',        mark: 'M',  tone: '#111827', bg: '#f5f5f5' },
+  { name: 'Contentful',    mark: 'C',  tone: '#2563eb', bg: '#f0f5ff' },
   {
     name: 'Webhooks',
     bg: '#f0f0ff',
@@ -69,8 +67,8 @@ export default function Integrations() {
             {PLATFORMS.map((p, i) => (
               <div key={i} className="int-pill">
                 <span className="int-pill-icon" style={{ background: p.bg }}>
-                  {p.slug
-                    ? <img src={`${SI}/${p.slug}`} alt={p.name} width="20" height="20" style={{ objectFit: 'contain' }} />
+                  {p.mark
+                    ? <span className="int-pill-mark" style={{ background: p.tone }}>{p.mark}</span>
                     : p.icon}
                 </span>
                 <span className="int-pill-name">{p.name}</span>

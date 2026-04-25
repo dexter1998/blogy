@@ -9,12 +9,18 @@ const KEYWORDS = [
   { kw: 'ai blog writer india',   vol: '2.8K' },
 ];
 
-const SI = 'https://cdn.simpleicons.org';
 const AI_LOGOS = [
   { src: '/logos/chatgpt.png',    name: 'ChatGPT',    local: true },
   { src: '/logos/claude.png',     name: 'Claude',     local: true },
   { src: '/logos/perplexity.png', name: 'Perplexity', local: true },
-  { slug: 'googlegemini', name: 'Gemini', bg: 'linear-gradient(135deg, #4285F4 0%, #EA4335 100%)', local: false },
+  { name: 'Gemini', bg: 'linear-gradient(135deg, #4285F4 0%, #EA4335 100%)', letter: 'G', local: false },
+];
+
+const AVATARS = [
+  { label: 'A', bg: '#0d9488' },
+  { label: 'S', bg: '#f97316' },
+  { label: 'R', bg: '#3b82f6' },
+  { label: 'N', bg: '#7c3aed' },
 ];
 
 const FULL_TEXT =
@@ -71,9 +77,9 @@ export default function Hero() {
               {AI_LOGOS.map((logo, i) => (
                 <span key={i} className="logo-spinner-slide" style={{ animationDelay: `${i * 3}s` }}>
                   {logo.local
-                    ? <img src={logo.src} alt={logo.name} style={{ width: '78%', height: '78%', objectFit: 'contain', borderRadius: 14 }} />
-                    : <span style={{ width: '72%', height: '72%', background: logo.bg, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '18%', boxSizing: 'border-box' }}>
-                        <img src={`${SI}/${logo.slug}/white`} alt={logo.name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                    ? <img src={logo.src} alt={logo.name} width="56" height="56" decoding="async" style={{ width: '78%', height: '78%', objectFit: 'contain', borderRadius: 14 }} />
+                    : <span style={{ width: '72%', height: '72%', background: logo.bg, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box', color: '#fff', fontWeight: 800, fontSize: '1.1rem' }}>
+                        {logo.letter}
                       </span>
                   }
                 </span>
@@ -117,13 +123,15 @@ export default function Hero() {
         {/* Social proof */}
         <div className="hero-proof animate-fade-up delay-3">
           <div className="avatars">
-            {[
-              'https://randomuser.me/api/portraits/men/32.jpg',
-              'https://randomuser.me/api/portraits/women/44.jpg',
-              'https://randomuser.me/api/portraits/men/86.jpg',
-              'https://randomuser.me/api/portraits/women/63.jpg',
-            ].map((src, i) => (
-              <img key={i} src={src} alt="" className={`avatar av${i + 1}`} style={{ objectFit: 'cover' }} />
+            {AVATARS.map((avatar, i) => (
+              <span
+                key={i}
+                aria-hidden="true"
+                className={`avatar av${i + 1}`}
+                style={{ background: avatar.bg, color: '#fff' }}
+              >
+                {avatar.label}
+              </span>
             ))}
           </div>
           <div>

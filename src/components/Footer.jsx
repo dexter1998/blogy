@@ -56,7 +56,7 @@ export default function Footer() {
               ))}
             </div>
             <a href="https://www.producthunt.com/products/blogy?embed=true" target="_blank" rel="noopener noreferrer" className="ph-badge">
-              <img src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=blogy&theme=light" alt="Blogy on Product Hunt" width="200" height="43" />
+              <img src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=blogy&theme=light" alt="Blogy on Product Hunt" width="200" height="43" loading="lazy" decoding="async" />
             </a>
           </div>
 

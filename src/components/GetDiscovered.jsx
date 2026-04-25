@@ -1,19 +1,17 @@
 import './GetDiscovered.css';
 
-const SI = 'https://cdn.simpleicons.org';
-
 const SEARCH_ENGINES = [
   { name: 'Google Search',  desc: "World's #1 search engine",    src: '/logos/google.svg', bg: '#fff'    },
-  { name: 'Bing',           desc: "Microsoft's search engine",   slug: 'bing',             bg: '#f0f8ff' },
-  { name: 'DuckDuckGo',     desc: 'Privacy-first search engine', slug: 'duckduckgo',       bg: '#fff4f0' },
-  { name: 'Yahoo Search',   desc: 'One of the oldest engines',   slug: 'yahoo',            bg: '#f9f0ff' },
+  { name: 'Bing',           desc: "Microsoft's search engine",   mark: 'B',                bg: '#f0f8ff', tone: '#2563eb' },
+  { name: 'DuckDuckGo',     desc: 'Privacy-first search engine', mark: 'D',                bg: '#fff4f0', tone: '#ea580c' },
+  { name: 'Yahoo Search',   desc: 'One of the oldest engines',   mark: 'Y',                bg: '#f9f0ff', tone: '#7c3aed' },
 ];
 
 const AI_PLATFORMS = [
   { name: 'ChatGPT',    desc: 'Leading AI assistant',       src: '/logos/chatgpt.png',    bg: '#f0fdf9' },
   { name: 'Perplexity', desc: 'AI-powered answer engine',   src: '/logos/perplexity.png', bg: '#f5f5ff' },
   { name: 'Claude',     desc: "Anthropic's AI assistant",   src: '/logos/claude.png',     bg: '#fff7f0' },
-  { name: 'Gemini',     desc: "Google's AI model",          slug: 'googlegemini',         bg: '#f0f4ff' },
+  { name: 'Gemini',     desc: "Google's AI model",          mark: 'G',                    bg: '#f0f4ff', tone: '#2563eb' },
 ];
 
 const STATS = [
@@ -46,7 +44,9 @@ export default function GetDiscovered() {
             {SEARCH_ENGINES.map((e, i) => (
               <div key={i} className="gd-item">
                 <div className="gd-item-icon" style={{ background: e.bg }}>
-                  <img src={e.src || `${SI}/${e.slug}`} alt={e.name} width="22" height="22" style={{ objectFit: 'contain' }} />
+                  {e.src
+                    ? <img src={e.src} alt={e.name} width="22" height="22" loading="lazy" decoding="async" style={{ objectFit: 'contain' }} />
+                    : <span className="gd-icon-letter" style={{ background: e.tone }}>{e.mark}</span>}
                 </div>
                 <div>
                   <div className="gd-item-name">{e.name}</div>
@@ -64,7 +64,9 @@ export default function GetDiscovered() {
             {AI_PLATFORMS.map((p, i) => (
               <div key={i} className="gd-item">
                 <div className="gd-item-icon" style={{ background: p.bg }}>
-                  <img src={p.src || `${SI}/${p.slug}`} alt={p.name} width="22" height="22" style={{ objectFit: 'contain' }} />
+                  {p.src
+                    ? <img src={p.src} alt={p.name} width="22" height="22" loading="lazy" decoding="async" style={{ objectFit: 'contain' }} />
+                    : <span className="gd-icon-letter" style={{ background: p.tone }}>{p.mark}</span>}
                 </div>
                 <div>
                   <div className="gd-item-name">{p.name}</div>

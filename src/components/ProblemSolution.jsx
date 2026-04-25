@@ -1,6 +1,5 @@
 import './ProblemSolution.css';
 
-const SI = 'https://cdn.simpleicons.org';
 const L = {
   chatgpt:    '/logos/chatgpt.png',
   claude:     '/logos/claude.png',
@@ -9,55 +8,67 @@ const L = {
   photoshop:  '/logos/photoshop.png',
 };
 
+function BrandChip({ label, tone = '#0d9488' }) {
+  return (
+    <span
+      className="ps-brand-chip"
+      aria-hidden="true"
+      style={{ background: tone }}
+    >
+      {label}
+    </span>
+  );
+}
+
 const PROBLEMS = [
   {
-    avatar: 'https://randomuser.me/api/portraits/women/44.jpg',
+    avatar: { label: 'R', bg: '#0d9488' },
     text: (
       <>
         Monthly subscriptions for{' '}
-        <img src={L.ahrefs} alt="Ahrefs" className="ps-brand-icon" />
+        <img src={L.ahrefs} alt="Ahrefs" width="14" height="14" className="ps-brand-icon" loading="lazy" decoding="async" />
         {' '}<strong>Ahrefs</strong>,{' '}
-        <img src={`${SI}/semrush`} alt="SEMrush" className="ps-brand-icon" />
+        <BrandChip label="S" tone="#10b981" />
         {' '}<strong>SEMrush</strong>,{' '}
-        <img src={L.canva} alt="Canva" className="ps-brand-icon" />
+        <img src={L.canva} alt="Canva" width="14" height="14" className="ps-brand-icon" loading="lazy" decoding="async" />
         {' '}<strong>Canva</strong> &amp;{' '}
-        <img src={L.photoshop} alt="Photoshop" className="ps-brand-icon" />
+        <img src={L.photoshop} alt="Photoshop" width="14" height="14" className="ps-brand-icon" loading="lazy" decoding="async" />
         {' '}<strong>Photoshop</strong> eat up{' '}
         <span className="ps-red">₹30,000+ of marketing budget</span> with nothing to show.
       </>
     ),
   },
   {
-    avatar: 'https://randomuser.me/api/portraits/men/32.jpg',
+    avatar: { label: 'A', bg: '#3b82f6' },
     text: (
       <>
         Switching between{' '}
-        <img src={L.chatgpt} alt="ChatGPT" className="ps-brand-icon" />
+        <img src={L.chatgpt} alt="ChatGPT" width="14" height="14" className="ps-brand-icon" loading="lazy" decoding="async" />
         {' '}<strong>ChatGPT</strong>,{' '}
-        <img src={L.ahrefs} alt="Ahrefs" className="ps-brand-icon" />
+        <img src={L.ahrefs} alt="Ahrefs" width="14" height="14" className="ps-brand-icon" loading="lazy" decoding="async" />
         {' '}<strong>keyword tools</strong>, and your CMS —{' '}
         <span className="ps-red">losing hours every week to tool overload.</span>
       </>
     ),
   },
   {
-    avatar: 'https://randomuser.me/api/portraits/women/68.jpg',
+    avatar: { label: 'M', bg: '#f97316' },
     text: (
       <>
         <span className="ps-red">Hours spent learning</span>{' '}
-        <img src={`${SI}/semrush`} alt="SEMrush" className="ps-brand-icon" />
+        <BrandChip label="S" tone="#10b981" />
         {' '}<strong>SEMrush</strong> &amp;{' '}
-        <img src={L.ahrefs} alt="Ahrefs" className="ps-brand-icon" />
+        <img src={L.ahrefs} alt="Ahrefs" width="14" height="14" className="ps-brand-icon" loading="lazy" decoding="async" />
         {' '}<strong>Ahrefs</strong> that still don't publish content automatically to your site.
       </>
     ),
   },
   {
-    avatar: 'https://randomuser.me/api/portraits/men/75.jpg',
+    avatar: { label: 'K', bg: '#7c3aed' },
     text: (
       <>
         Content gets created in{' '}
-        <img src={L.chatgpt} alt="ChatGPT" className="ps-brand-icon" />
+        <img src={L.chatgpt} alt="ChatGPT" width="14" height="14" className="ps-brand-icon" loading="lazy" decoding="async" />
         {' '}<strong>ChatGPT</strong>… but{' '}
         <span className="ps-red">never compounds</span> — no internal linking, no scaling system, no traffic flywheel.
       </>
@@ -89,7 +100,13 @@ export default function ProblemSolution() {
             <div className="ps-problems">
               {PROBLEMS.map((p, i) => (
                 <div key={i} className="ps-chat-row">
-                  <img src={p.avatar} alt="" className="ps-chat-avatar" />
+                  <span
+                    aria-hidden="true"
+                    className="ps-chat-avatar"
+                    style={{ background: p.avatar.bg, color: '#fff' }}
+                  >
+                    {p.avatar.label}
+                  </span>
                   <div className="ps-chat-bubble">
                     <p>{p.text}</p>
                   </div>

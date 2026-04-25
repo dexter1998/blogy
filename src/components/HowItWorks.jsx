@@ -1,8 +1,11 @@
+import { useState } from 'react';
 import './HowItWorks.css';
 
 const VIDEO_ID = '9CANRnnWG9k';
 
 export default function HowItWorks() {
+  const [isVideoLoaded, setIsVideoLoaded] = useState(false);
+
   return (
     <section id="how-it-works" className="hiw-section">
       <div className="container">
@@ -37,13 +40,34 @@ export default function HowItWorks() {
 
         {/* Full-width video below */}
         <div className="hiw-video-wrap">
-          <iframe
-            src={`https://www.youtube.com/embed/${VIDEO_ID}?rel=0&modestbranding=1`}
-            title="Blogy Demo — watch how it works"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowFullScreen
-            className="hiw-iframe"
-          />
+          {isVideoLoaded ? (
+            <iframe
+              src={`https://www.youtube.com/embed/${VIDEO_ID}?rel=0&modestbranding=1&autoplay=1`}
+              title="Blogy Demo — watch how it works"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+              loading="lazy"
+              className="hiw-iframe"
+            />
+          ) : (
+            <button
+              type="button"
+              className="hiw-video-poster"
+              onClick={() => setIsVideoLoaded(true)}
+              aria-label="Play Blogy demo video"
+            >
+              <div className="hiw-video-badge">Live Demo</div>
+              <div className="hiw-video-copy">
+                <strong>Keyword to live article in under 10 minutes</strong>
+                <span>Load the demo only when someone wants to watch it.</span>
+              </div>
+              <span className="hiw-video-play" aria-hidden="true">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M8 5v14l11-7z"/>
+                </svg>
+              </span>
+            </button>
+          )}
         </div>
       </div>
     </section>
