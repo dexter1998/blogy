@@ -38,6 +38,14 @@ function RouteLoader() {
   );
 }
 
+function DeferredBlock({ children, size = '840px' }) {
+  return (
+    <div className="deferred-block" style={{ '--deferred-size': size }}>
+      {children}
+    </div>
+  );
+}
+
 function LandingPage() {
   return (
     <main>
@@ -51,17 +59,39 @@ function LandingPage() {
       <ProblemSolution />
       <GetDiscovered />
       <Languages />
-      <EverythingYouNeed />
-      <HowItWorks />
-      <BlogyEffect />
-      <SampleBlogs />
-      <Integrations />
-      <Testimonials />
-      <Pricing />
-      <Blogs />
-      <AsSeenOn />
-      <FAQ />
-      <CTABanner />
+      <DeferredBlock size="920px">
+        <EverythingYouNeed />
+      </DeferredBlock>
+      <DeferredBlock size="860px">
+        <HowItWorks />
+      </DeferredBlock>
+      <DeferredBlock size="900px">
+        <BlogyEffect />
+      </DeferredBlock>
+      <DeferredBlock size="980px">
+        <SampleBlogs />
+      </DeferredBlock>
+      <DeferredBlock size="760px">
+        <Integrations />
+      </DeferredBlock>
+      <DeferredBlock size="760px">
+        <Testimonials />
+      </DeferredBlock>
+      <DeferredBlock size="1120px">
+        <Pricing />
+      </DeferredBlock>
+      <DeferredBlock size="720px">
+        <Blogs />
+      </DeferredBlock>
+      <DeferredBlock size="520px">
+        <AsSeenOn />
+      </DeferredBlock>
+      <DeferredBlock size="860px">
+        <FAQ />
+      </DeferredBlock>
+      <DeferredBlock size="420px">
+        <CTABanner />
+      </DeferredBlock>
     </main>
   );
 }

@@ -195,6 +195,11 @@ ul { list-style: none; }
 .delay-3 { animation-delay: 0.3s; }
 .delay-4 { animation-delay: 0.4s; }
 
+.deferred-block {
+  content-visibility: auto;
+  contain-intrinsic-size: var(--deferred-size, 800px);
+}
+
 /* ── Dark mode ── */
 [data-theme="dark"] {
   --gray-50:  #18181b;
