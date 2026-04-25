@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import './Hero.css';
 
+const SI = 'https://cdn.simpleicons.org';
+
 const KEYWORDS = [
   { kw: 'ai content marketing',   vol: '12K' },
   { kw: 'seo automation tools',   vol: '8.4K' },
@@ -13,7 +15,7 @@ const AI_LOGOS = [
   { src: '/logos/chatgpt.png',    name: 'ChatGPT',    local: true },
   { src: '/logos/claude.png',     name: 'Claude',     local: true },
   { src: '/logos/perplexity.png', name: 'Perplexity', local: true },
-  { name: 'Gemini', bg: 'linear-gradient(135deg, #4285F4 0%, #EA4335 100%)', letter: 'G', local: false },
+  { name: 'Gemini', slug: 'googlegemini', bg: 'linear-gradient(135deg, #4285F4 0%, #EA4335 100%)', local: false },
 ];
 
 const AVATARS = [
@@ -78,8 +80,8 @@ export default function Hero() {
                 <span key={i} className="logo-spinner-slide" style={{ animationDelay: `${i * 3}s` }}>
                   {logo.local
                     ? <img src={logo.src} alt={logo.name} width="56" height="56" decoding="async" style={{ width: '78%', height: '78%', objectFit: 'contain', borderRadius: 14 }} />
-                    : <span style={{ width: '72%', height: '72%', background: logo.bg, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box', color: '#fff', fontWeight: 800, fontSize: '1.1rem' }}>
-                        {logo.letter}
+                    : <span style={{ width: '72%', height: '72%', background: logo.bg, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box', padding: '18%' }}>
+                        <img src={`${SI}/${logo.slug}/white`} alt={logo.name} width="40" height="40" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                       </span>
                   }
                 </span>
