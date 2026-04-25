@@ -13,8 +13,6 @@ const PAGE_TYPE_BY_PATH = [
 ];
 
 const routeEventState = {
-  loaded: false,
-  scriptLoading: false,
   pagehideAttached: false,
 };
 
@@ -64,51 +62,9 @@ function canTrack() {
   return Boolean(GA_ID) && (!isLocalhost() || isDebugEnabled());
 }
 
-function ensureDataLayer() {
-  if (typeof window === 'undefined') return;
-  window.dataLayer = window.dataLayer || [];
-  window.gtag =
-    window.gtag ||
-    function gtag() {
-      window.dataLayer.push(arguments);
-    };
-}
-
 function loadAnalytics() {
-  if (!canTrack() || typeof document === 'undefined') return false;
-
-  ensureDataLayer();
-
-  if (!routeEventState.loaded) {
-    window.gtag('js', new Date());
-    window.gtag('config', GA_ID, {
-      page_title: document.title,
-      page_location: window.location.href,
-      send_page_view: false,
-    });
-    routeEventState.loaded = true;
-  }
-
-  if (document.querySelector(`script[data-ga-id="${GA_ID}"]`)) {
-    return true;
-  }
-
-  if (!routeEventState.scriptLoading) {
-    routeEventState.scriptLoading = true;
-    const script = document.createElement('script');
-    script.async = true;
-    script.src = `https://www.googletagmanager.com/gtag/js?id=${GA_ID}`;
-    script.dataset.gaId = GA_ID;
-    script.onload = () => {
-      routeEventState.scriptLoading = false;
-    };
-    script.onerror = () => {
-      routeEventState.scriptLoading = false;
-    };
-    document.head.appendChild(script);
-  }
-
-  return true;
+  if (!canTrack() || typeof window === 'undefined') return false;
+  return typeof window.gtag === 'function';
 }
 
 export function trackEvent(eventName, params = {}, options = {}) {
@@ -337,4 +293,3 @@ export function AnalyticsTracker() {
 
   return null;
 }
-

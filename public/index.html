@@ -12,6 +12,38 @@
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
     <script src="%PUBLIC_URL%/runtime-env.js"></script>
+    <script>
+      (function () {
+        var env = window.__BLOGY_ENV__ || {};
+        var gaId = env.NEXT_PUBLIC_GA_ID;
+        var hostname = window.location.hostname;
+        var isLocalhost =
+          hostname === 'localhost' ||
+          hostname === '127.0.0.1' ||
+          hostname === '[::1]';
+
+        if (!gaId || isLocalhost) return;
+
+        window.dataLayer = window.dataLayer || [];
+        window.gtag = window.gtag || function gtag() {
+          window.dataLayer.push(arguments);
+        };
+
+        window.gtag('js', new Date());
+        window.gtag('config', gaId, {
+          send_page_view: false,
+        });
+
+        var existingScript = document.querySelector('script[data-ga-id="' + gaId + '"]');
+        if (existingScript) return;
+
+        var script = document.createElement('script');
+        script.async = true;
+        script.src = 'https://www.googletagmanager.com/gtag/js?id=' + gaId;
+        script.setAttribute('data-ga-id', gaId);
+        document.head.appendChild(script);
+      })();
+    </script>
     <div id="root"></div>
   </body>
 </html>
