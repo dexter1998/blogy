@@ -1231,7 +1231,6 @@ export default function Deck() {
   const [current, setCurrent] = useState(0);
   const [downloading, setDownloading] = useState(false);
   const total = SLIDES.length;
-  const slidesRef = useRef([]);
 
   const goTo = useCallback((idx) => {
     if (idx >= 0 && idx < total) setCurrent(idx);
