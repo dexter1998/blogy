@@ -1,5 +1,5 @@
 import { useState, useEffect, lazy, Suspense } from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { HelmetProvider } from 'react-helmet-async';
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/react';
@@ -29,6 +29,8 @@ import { AnalyticsTracker } from './lib/analytics';
 const StartupNamesHub = lazy(() => import('./pages/StartupNamesHub'));
 const StartupNamesCategory = lazy(() => import('./pages/StartupNamesCategory'));
 const StartupNameGenerator = lazy(() => import('./pages/StartupNameGenerator'));
+const Deck = lazy(() => import('./pages/Deck'));
+const InvestorLanding = lazy(() => import('./pages/InvestorLanding'));
 
 function RouteLoader() {
   return (
@@ -96,6 +98,32 @@ function LandingPage() {
   );
 }
 
+function AppShell({ dark, setDark }) {
+  const location = useLocation();
+  const isDeck = location.pathname === '/deck' || location.pathname === '/alternative-landingpage';
+
+  return (
+    <>
+      <AnalyticsTracker />
+      {!isDeck && <Navbar dark={dark} setDark={setDark} />}
+      <Suspense fallback={<RouteLoader />}>
+        <Routes>
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/startup-names" element={<StartupNamesHub />} />
+          <Route path="/startup-names/:slug" element={<StartupNamesCategory />} />
+          <Route path="/startup-name-generator" element={<StartupNameGenerator />} />
+          <Route path="/deck" element={<Deck />} />
+          <Route path="/alternative-landingpage" element={<InvestorLanding />} />
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </Suspense>
+      {!isDeck && <Footer />}
+      <Analytics />
+      <SpeedInsights />
+    </>
+  );
+}
+
 function App() {
   const [dark, setDark] = useState(false);
 
@@ -106,20 +134,7 @@ function App() {
   return (
     <HelmetProvider>
       <BrowserRouter>
-        <AnalyticsTracker />
-        <Navbar dark={dark} setDark={setDark} />
-        <Suspense fallback={<RouteLoader />}>
-          <Routes>
-            <Route path="/" element={<LandingPage />} />
-            <Route path="/startup-names" element={<StartupNamesHub />} />
-            <Route path="/startup-names/:slug" element={<StartupNamesCategory />} />
-            <Route path="/startup-name-generator" element={<StartupNameGenerator />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </Suspense>
-        <Footer />
-        <Analytics />
-        <SpeedInsights />
+        <AppShell dark={dark} setDark={setDark} />
       </BrowserRouter>
     </HelmetProvider>
   );
