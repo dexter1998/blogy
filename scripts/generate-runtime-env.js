@@ -1,6 +1,12 @@
 const fs = require('fs');
 const path = require('path');
 
+// Load .env so NEXT_PUBLIC_GA_ID is available when running prestart/prebuild
+const envPath = path.join(__dirname, '..', '.env');
+if (fs.existsSync(envPath)) {
+  require('dotenv').config({ path: envPath });
+}
+
 const runtimeEnv = {
   NEXT_PUBLIC_GA_ID: process.env.NEXT_PUBLIC_GA_ID || '',
 };
