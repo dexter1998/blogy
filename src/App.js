@@ -31,6 +31,7 @@ const StartupNamesCategory = lazy(() => import('./pages/StartupNamesCategory'));
 const StartupNameGenerator = lazy(() => import('./pages/StartupNameGenerator'));
 const Deck = lazy(() => import('./pages/Deck'));
 const InvestorLanding = lazy(() => import('./pages/InvestorLanding'));
+const Fidem = lazy(() => import('./pages/Fidem'));
 
 function RouteLoader() {
   return (
@@ -100,7 +101,7 @@ function LandingPage() {
 
 function AppShell({ dark, setDark }) {
   const location = useLocation();
-  const isDeck = location.pathname === '/deck' || location.pathname === '/alternative-landingpage';
+  const isDeck = location.pathname === '/deck' || location.pathname === '/alternative-landingpage' || location.pathname === '/fidem';
 
   return (
     <>
@@ -114,6 +115,7 @@ function AppShell({ dark, setDark }) {
           <Route path="/startup-name-generator" element={<StartupNameGenerator />} />
           <Route path="/deck" element={<Deck />} />
           <Route path="/alternative-landingpage" element={<InvestorLanding />} />
+          <Route path="/fidem" element={<Fidem />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </Suspense>
