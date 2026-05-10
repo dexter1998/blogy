@@ -57,7 +57,11 @@ export function PageSpeedTool() {
   const resultsRef = useRef<HTMLDivElement | null>(null);
 
   const activeResult = results[device];
-  const liveScreenshot = activeResult?.screenshot || results.mobile?.screenshot || results.desktop?.screenshot || "";
+  // NOTE: we deliberately don't pipe result.screenshot (Lighthouse final-shot)
+  // into the mockup. Lighthouse captures the *final* rendered state which is
+  // often a popup, cookie banner, or modal that fired during the audit — not
+  // a clean hero. The mshots/thum.io top-fold capture is more reliable for
+  // the preview. The full Lighthouse screenshot still shows in ScreenshotCard.
 
   useEffect(() => {
     if (activeResult && resultsRef.current) {
@@ -112,7 +116,6 @@ export function PageSpeedTool() {
         device={device}
         setDevice={setDevice}
         previewUrl={previewUrl}
-        liveScreenshot={liveScreenshot}
         loading={loading}
         error={error}
         onSubmit={onSubmit}
@@ -214,7 +217,6 @@ function Hero({
   device,
   setDevice,
   previewUrl,
-  liveScreenshot,
   loading,
   error,
   onSubmit,
@@ -224,7 +226,6 @@ function Hero({
   device: Device;
   setDevice: (d: Device) => void;
   previewUrl: string;
-  liveScreenshot: string;
   loading: boolean;
   error: string | null;
   onSubmit: (e: React.FormEvent) => void;
@@ -293,7 +294,6 @@ function Hero({
               device={device}
               setDevice={setDevice}
               scanning={loading}
-              liveScreenshot={liveScreenshot}
             />
           </div>
         </div>
@@ -338,20 +338,15 @@ function hostnameOf(url: string): string {
 }
 
 /**
- * Renders a screenshot through a chain of providers. Falls back to a
- * favicon + hostname card when every provider fails.
- *
- * `liveScreenshot` is the base64 final-screenshot from the audit result,
- * preferred when available because it's guaranteed to be the audited page.
+ * Renders a top-fold screenshot of the URL through a chain of providers.
+ * Falls back to a favicon + hostname card when every provider fails.
  */
 function SiteShot({
   url,
   viewport,
-  liveScreenshot,
 }: {
   url: string;
   viewport: { w: number; h: number };
-  liveScreenshot?: string;
 }) {
   const sources = useMemo(() => shotUrls(url, viewport), [url, viewport]);
   const [idx, setIdx] = useState(0);
@@ -371,18 +366,6 @@ function SiteShot({
     const t = setTimeout(() => setIdx((i) => i + 1), 8000);
     return () => clearTimeout(t);
   }, [idx, loaded, sources.length]);
-
-  if (liveScreenshot) {
-    return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
-        src={liveScreenshot}
-        alt="Audited page"
-        className="block h-full w-full object-cover object-top"
-        loading="lazy"
-      />
-    );
-  }
 
   if (!url) return <VectorPlaceholder />;
   if (idx >= sources.length) return <FaviconPlaceholder url={url} />;
@@ -432,13 +415,11 @@ function DeviceScanner({
   device,
   setDevice,
   scanning,
-  liveScreenshot,
 }: {
   url: string;
   device: Device;
   setDevice: (d: Device) => void;
   scanning: boolean;
-  liveScreenshot: string;
 }) {
   return (
     <div className="w-full max-w-[560px]">
@@ -446,9 +427,9 @@ function DeviceScanner({
           phone overlaps the laptop on the left side, both render the
           same live preview. */}
       <div className="relative flex items-end justify-center">
-        <LaptopMockup url={url} scanning={scanning} liveScreenshot={liveScreenshot} />
+        <LaptopMockup url={url} scanning={scanning} />
         <div className="absolute -bottom-2 left-0 sm:left-2">
-          <PhoneMockup url={url} scanning={scanning} liveScreenshot={liveScreenshot} />
+          <PhoneMockup url={url} scanning={scanning} />
         </div>
       </div>
 
@@ -525,11 +506,9 @@ function VectorPlaceholder() {
 function PhoneMockup({
   url,
   scanning,
-  liveScreenshot,
 }: {
   url: string;
   scanning: boolean;
-  liveScreenshot?: string;
 }) {
   return (
     <div className="relative w-[170px] shrink-0 sm:w-[200px]">
@@ -540,7 +519,7 @@ function PhoneMockup({
           {/* Mobile viewport — captures only the top fold (≈ hero section).
               Width/height matches the phone frame's 9:19 aspect so the image
               fits without object-cover cropping the wrong portion. */}
-          <SiteShot url={url} viewport={{ w: 450, h: 950 }} liveScreenshot={liveScreenshot} />
+          <SiteShot url={url} viewport={{ w: 450, h: 950 }} />
           <ScanningOverlay active={scanning} />
         </div>
       </div>
@@ -551,11 +530,9 @@ function PhoneMockup({
 function LaptopMockup({
   url,
   scanning,
-  liveScreenshot,
 }: {
   url: string;
   scanning: boolean;
-  liveScreenshot?: string;
 }) {
   return (
     <div className="relative w-full max-w-[520px] shrink-0">
@@ -565,7 +542,7 @@ function LaptopMockup({
         <div className="absolute left-1/2 top-[3px] z-10 h-1 w-1 -translate-x-1/2 rounded-full bg-zinc-500" />
         <div className="relative h-full w-full overflow-hidden rounded-[0.35rem] bg-white">
           {/* Desktop viewport — 16:10 hero fold, no full-page scroll */}
-          <SiteShot url={url} viewport={{ w: 1280, h: 800 }} liveScreenshot={liveScreenshot} />
+          <SiteShot url={url} viewport={{ w: 1280, h: 800 }} />
           <ScanningOverlay active={scanning} />
         </div>
       </div>
