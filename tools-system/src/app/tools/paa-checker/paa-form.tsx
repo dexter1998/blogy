@@ -7,9 +7,9 @@ import {
   COUNTRY_OPTIONS,
   DEFAULT_COUNTRY_OPTION,
   DEFAULT_ENGINE_OPTION_IDS,
-  DEFAULT_PAA_LIMIT,
+  DEFAULT_PAA_PER_ENGINE,
   ENGINE_OPTIONS,
-  PAA_LIMIT_OPTIONS,
+  PAA_PER_ENGINE_OPTIONS,
 } from "@/scrapers/_shared/search/ui-options";
 import type { EngineId } from "@/scrapers/_shared/search";
 import type { PaaResult } from "@/scrapers/paa/types";
@@ -34,7 +34,7 @@ export function PaaForm() {
   const [query, setQuery] = useState("domain authority");
   const [country, setCountry] = useState(DEFAULT_COUNTRY_OPTION);
   const [engines, setEngines] = useState<EngineId[]>(DEFAULT_ENGINE_OPTION_IDS);
-  const [limit, setLimit] = useState<number>(DEFAULT_PAA_LIMIT);
+  const [perEngineLimit, setPerEngineLimit] = useState<number>(DEFAULT_PAA_PER_ENGINE);
   const [depth, setDepth] = useState<1 | 2 | 3>(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -58,7 +58,7 @@ export function PaaForm() {
       const res = await fetch("/api/v1/paa", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query, country, engines, limit, depth }),
+        body: JSON.stringify({ query, country, engines, perEngineLimit, depth }),
       });
       const json = (await res.json()) as ApiResp;
       if (!json.ok) setError(json.error.message);
@@ -124,13 +124,14 @@ export function PaaForm() {
               </div>
             </div>
             <div className="min-w-0">
-              <label className="text-sm font-medium">Questions</label>
+              <label className="text-sm font-medium">Per engine</label>
               <select
-                value={limit}
-                onChange={(e) => setLimit(Number(e.target.value))}
+                value={perEngineLimit}
+                onChange={(e) => setPerEngineLimit(Number(e.target.value))}
                 className="mt-1 w-full rounded-lg border border-app bg-app px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent"
+                title="Each selected search engine is asked for up to this many questions."
               >
-                {PAA_LIMIT_OPTIONS.map((n) => (
+                {PAA_PER_ENGINE_OPTIONS.map((n) => (
                   <option key={n} value={n}>
                     {n}
                   </option>
@@ -172,8 +173,8 @@ export function PaaForm() {
         <>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Stat label="Questions" value={result.totalQuestions} tone="good" />
+            <Stat label="Per engine" value={result.perEngineLimit} />
             <Stat label="Depth" value={result.depth} />
-            <Stat label="Country" value={result.country} />
             <Stat
               label="Engines used"
               value={Object.keys(result.byEngine).filter((e) => e !== "expansion").length}

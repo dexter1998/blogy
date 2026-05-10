@@ -6,6 +6,9 @@
  *   - question-shaped related searches from any engine
  *   - synthetic expansion seeds (clearly labelled `engine="expansion"`)
  *   - recursive expansion when `depth > 1`
+ *
+ * Quota: each engine gets its own per-engine quota (default 10) so engines
+ * with thinner output (DuckDuckGo, Yahoo) don't get crowded out by Google.
  */
 
 import { env } from "@/lib/env";
@@ -32,8 +35,9 @@ export const paaScraper: Scraper<PaaInput, PaaResult> = {
       .sort()
       .join(",");
     const depth = input.depth ?? 1;
-    const limit = input.limit ?? 25;
-    return `${country}:${engines}:${depth}:${limit}:${input.query.trim().toLowerCase()}`;
+    const perEngineLimit = input.perEngineLimit ?? 10;
+    const limit = input.limit ?? "";
+    return `${country}:${engines}:${depth}:pe${perEngineLimit}:lg${limit}:${input.query.trim().toLowerCase()}`;
   },
 
   async execute(input, ctx: ScrapeContext): Promise<PaaResult> {
@@ -41,6 +45,7 @@ export const paaScraper: Scraper<PaaInput, PaaResult> = {
       query: input.query,
       country: input.country,
       engines: input.engines,
+      perEngineLimit: input.perEngineLimit,
       limit: input.limit,
       depth: input.depth,
       includeSeeds: input.includeSeeds,
@@ -54,6 +59,7 @@ export const paaScraper: Scraper<PaaInput, PaaResult> = {
       fetchedAt: new Date().toISOString(),
       totalQuestions: harvested.total,
       depth: harvested.depth,
+      perEngineLimit: harvested.perEngineLimit,
       questions: harvested.questions,
       byEngine: harvested.byEngine,
       byClassification: harvested.byClassification,

@@ -12,6 +12,9 @@ const singleSchema = z.object({
   query: z.string().min(1).max(200),
   country: z.string().min(2).max(3).optional(),
   engines: z.array(engineSchema).min(1).max(4).optional(),
+  /** Per-engine quota (1–100). Default 10. */
+  perEngineLimit: z.number().int().min(1).max(100).optional(),
+  /** Legacy global cap (1–250). Optional. */
   limit: z.number().int().min(1).max(250).optional(),
   depth: z.union([z.literal(1), z.literal(2), z.literal(3)]).optional(),
   includeSeeds: z.boolean().optional(),
@@ -36,6 +39,12 @@ const handlers = makeRouteHandler({
         .map((s) => s.trim())
         .filter((s): s is EngineId => (ALL_ENGINE_IDS as string[]).includes(s));
       if (engines.length > 0) out.engines = engines;
+    }
+
+    const perEngineLimit = p.get("perEngineLimit") ?? p.get("perEngine");
+    if (perEngineLimit) {
+      const n = Number(perEngineLimit);
+      if (Number.isFinite(n)) out.perEngineLimit = n;
     }
 
     const limit = p.get("limit");

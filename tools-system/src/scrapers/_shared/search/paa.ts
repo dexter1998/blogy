@@ -5,6 +5,11 @@
  *   - the SERP API (returns PAA as a sidecar)
  *   - the PAA API (the primary surface)
  * call into.
+ *
+ * Quota model: each engine gets its own per-engine quota (default 10),
+ * not a single shared limit. This keeps coverage balanced — a noisy
+ * engine can't crowd out a quieter one. `expansion` (synthetic seeds)
+ * is a virtual engine and uses the same per-engine quota.
  */
 
 import type { CountryEntry } from "./countries";
@@ -33,7 +38,18 @@ export type PaaHarvestRequest = {
   query: string;
   country?: string;
   engines?: EngineId[];
-  /** Maximum questions to return (post-dedupe). */
+  /**
+   * Maximum questions PER engine (post-dedupe). Each engine — including
+   * the synthetic "expansion" source — gets up to this many questions.
+   * Default 10.
+   */
+  perEngineLimit?: number;
+  /**
+   * Legacy global cap. When set, the harvester returns at most this many
+   * questions across all engines combined (after the per-engine quota is
+   * applied). Older callers can keep using this; new callers should use
+   * `perEngineLimit` only.
+   */
   limit?: number;
   /** Recursion depth: 1 = no expansion; 2 = expand top results once, … */
   depth?: 1 | 2 | 3;
@@ -48,6 +64,8 @@ export type PaaHarvestResult = {
   language: string;
   total: number;
   depth: number;
+  /** Per-engine quota that was applied. */
+  perEngineLimit: number;
   questions: HarvestedQuestion[];
   byEngine: Record<string, number>;
   byClassification: Record<string, number>;
@@ -81,12 +99,43 @@ function expansionSeeds(query: string): string[] {
     `${q} vs alternatives`,
     `how to use ${q}`,
     `benefits of ${q}`,
+    `${q} pros and cons`,
+    `${q} explained`,
+    `${q} for beginners`,
+    `${q} step by step`,
   ];
+}
+
+type Buckets = Map<PaaSource, HarvestedQuestion[]>;
+
+function bucketTotal(buckets: Buckets): number {
+  let n = 0;
+  for (const list of buckets.values()) n += list.length;
+  return n;
+}
+
+function tryAdd(
+  buckets: Buckets,
+  seen: Set<string>,
+  perEngineLimit: number,
+  item: HarvestedQuestion,
+): boolean {
+  const norm = normalize(item.question);
+  if (!norm || seen.has(norm)) return false;
+  let bucket = buckets.get(item.engine);
+  if (!bucket) {
+    bucket = [];
+    buckets.set(item.engine, bucket);
+  }
+  if (bucket.length >= perEngineLimit) return false;
+  seen.add(norm);
+  bucket.push(item);
+  return true;
 }
 
 /**
  * Harvest a single layer of PAA + question-shaped signals from one query.
- * Returned questions are normalized and deduped against `seen`.
+ * Adds questions to per-engine buckets, respecting the per-engine quota.
  */
 async function harvestOne(
   query: string,
@@ -95,16 +144,9 @@ async function harvestOne(
   depth: number,
   signal: AbortSignal | undefined,
   seen: Set<string>,
-): Promise<HarvestedQuestion[]> {
-  const out: HarvestedQuestion[] = [];
-  const add = (item: HarvestedQuestion) => {
-    const norm = normalize(item.question);
-    if (!norm || seen.has(norm)) return false;
-    seen.add(norm);
-    out.push(item);
-    return true;
-  };
-
+  buckets: Buckets,
+  perEngineLimit: number,
+): Promise<void> {
   const fetched = await runMultiEngine({
     query,
     country: country.code,
@@ -115,7 +157,7 @@ async function harvestOne(
   for (const f of fetched.perEngine) {
     // Native PAA from the engine's "People also ask" block (Google/Bing/Yahoo)
     for (const p of f.paa) {
-      add({
+      tryAdd(buckets, seen, perEngineLimit, {
         question: p.question,
         ...(p.answer ? { answer: p.answer } : {}),
         ...(p.sourceUrl ? { sourceUrl: p.sourceUrl } : {}),
@@ -127,19 +169,18 @@ async function harvestOne(
     }
     // Question-shaped related searches
     for (const r of f.related) {
-      if (isQuestionShape(r)) {
-        add({
-          question: r,
-          engine: f.engine,
-          depth,
-          classification: classify(r),
-        });
-      }
+      if (!isQuestionShape(r)) continue;
+      tryAdd(buckets, seen, perEngineLimit, {
+        question: r,
+        engine: f.engine,
+        depth,
+        classification: classify(r),
+      });
     }
-    // Question-shaped result titles
+    // Question-shaped result titles + snippet leads
     for (const r of f.results) {
       if (isQuestionShape(r.title)) {
-        add({
+        tryAdd(buckets, seen, perEngineLimit, {
           question: r.title.endsWith("?") ? r.title : `${r.title}?`,
           sourceUrl: r.url,
           sourceDomain: r.domain,
@@ -148,10 +189,9 @@ async function harvestOne(
           classification: classify(r.title),
         });
       }
-      // Snippets occasionally start with the question they answer
       const firstSentence = r.snippet.split(/[.?!]/)[0]?.trim();
       if (firstSentence && isQuestionShape(firstSentence)) {
-        add({
+        tryAdd(buckets, seen, perEngineLimit, {
           question: `${firstSentence}?`,
           sourceUrl: r.url,
           sourceDomain: r.domain,
@@ -162,32 +202,34 @@ async function harvestOne(
       }
     }
   }
-  return out;
 }
 
 export async function harvestPaa(req: PaaHarvestRequest): Promise<PaaHarvestResult> {
   const country = resolveCountry(req.country);
   const enginesResolved = resolveEngines(req.engines);
   const engineIds = enginesResolved.map((e) => e.id);
-  const limit = Math.max(1, Math.min(req.limit ?? 25, 250));
+  const perEngineLimit = Math.max(1, Math.min(req.perEngineLimit ?? 10, 100));
   const depth = (req.depth ?? 1) as 1 | 2 | 3;
   const includeSeeds = req.includeSeeds !== false;
+  // Optional global cap; default = no cap beyond per-engine quotas.
+  const globalCap = Math.max(
+    1,
+    Math.min(
+      req.limit ?? perEngineLimit * (engineIds.length + (includeSeeds ? 1 : 0)),
+      1000,
+    ),
+  );
 
   const seen = new Set<string>();
-  const collected: HarvestedQuestion[] = [];
+  const buckets: Buckets = new Map();
 
   // Layer 0: direct query
-  const root = await harvestOne(req.query, country, engineIds, 0, req.signal, seen);
-  collected.push(...root);
+  await harvestOne(req.query, country, engineIds, 0, req.signal, seen, buckets, perEngineLimit);
 
   // Synthetic seeds — expansion patterns only, not scraped data.
   if (includeSeeds) {
     for (const seed of expansionSeeds(req.query)) {
-      if (collected.length >= limit) break;
-      const norm = normalize(seed);
-      if (seen.has(norm)) continue;
-      seen.add(norm);
-      collected.push({
+      tryAdd(buckets, seen, perEngineLimit, {
         question: seed,
         engine: "expansion",
         depth: 0,
@@ -196,32 +238,54 @@ export async function harvestPaa(req: PaaHarvestRequest): Promise<PaaHarvestResu
     }
   }
 
-  // Layer 1+: recursive expansion of top scraped questions.
-  for (let d = 1; d < depth && collected.length < limit; d++) {
-    const candidates = collected.filter(
-      (q) => q.depth === d - 1 && q.engine !== "expansion",
+  // Layer 1+: recursive expansion of top scraped questions, but only into
+  // engine buckets that still have headroom. Skip entirely once every engine
+  // is full.
+  for (let d = 1; d < depth; d++) {
+    const allFull = engineIds.every(
+      (id) => (buckets.get(id)?.length ?? 0) >= perEngineLimit,
     );
-    const top = candidates.slice(0, Math.min(5, candidates.length));
+    if (allFull) break;
+
+    // Use top scraped questions from the previous layer as expansion seeds.
+    const prev: HarvestedQuestion[] = [];
+    for (const [engine, list] of buckets) {
+      if (engine === "expansion") continue;
+      for (const q of list) if (q.depth === d - 1) prev.push(q);
+    }
+    const top = prev.slice(0, Math.min(5, prev.length));
     for (const node of top) {
-      if (collected.length >= limit) break;
       try {
-        const children = await harvestOne(
+        await harvestOne(
           node.question,
           country,
           engineIds,
           d,
           req.signal,
           seen,
+          buckets,
+          perEngineLimit,
         );
-        const room = limit - collected.length;
-        collected.push(...children.slice(0, Math.max(0, room)));
       } catch {
         /* per-node failure is fine — keep going */
       }
     }
   }
 
-  const trimmed = collected.slice(0, limit);
+  // Flatten in a deterministic engine order: requested engines first
+  // (preserving their priority), then expansion seeds last.
+  const order: PaaSource[] = [...engineIds, "expansion"];
+  const flat: HarvestedQuestion[] = [];
+  for (const e of order) {
+    const list = buckets.get(e);
+    if (list) flat.push(...list);
+  }
+  // Add any unexpected engine buckets (defensive — shouldn't happen).
+  for (const [e, list] of buckets) {
+    if (!order.includes(e)) flat.push(...list);
+  }
+
+  const trimmed = flat.slice(0, globalCap);
 
   const byEngine: Record<string, number> = {};
   const byClassification: Record<string, number> = {};
@@ -236,6 +300,7 @@ export async function harvestPaa(req: PaaHarvestRequest): Promise<PaaHarvestResu
     language: country.language,
     total: trimmed.length,
     depth,
+    perEngineLimit,
     questions: trimmed,
     byEngine,
     byClassification,

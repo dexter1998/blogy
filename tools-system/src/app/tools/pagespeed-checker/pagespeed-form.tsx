@@ -41,13 +41,14 @@ function normaliseUrl(input: string): string {
 
 export function PageSpeedTool() {
   const [url, setUrl] = useState("blogy.in");
-  const [strategy, setStrategy] = useState<Strategy>("mobile");
-  // The device that the mockup renders as. Defaults to follow the strategy
-  // but the user can flip it to preview either form-factor.
+  // The device that controls which set of results + which mockup is shown.
   const [device, setDevice] = useState<Device>("mobile");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<PageSpeedResult | null>(null);
+  const [results, setResults] = useState<{
+    mobile: PageSpeedResult | null;
+    desktop: PageSpeedResult | null;
+  }>({ mobile: null, desktop: null });
   // The URL used for the live preview iframe — only updates when the user
   // actually submits, so typing doesn't cause the iframe to reload on every
   // keystroke.
@@ -55,29 +56,45 @@ export function PageSpeedTool() {
 
   const resultsRef = useRef<HTMLDivElement | null>(null);
 
+  const activeResult = results[device];
+
   useEffect(() => {
-    if (result && resultsRef.current) {
+    if (activeResult && resultsRef.current) {
       resultsRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
     }
-  }, [result]);
+    // Only auto-scroll on first arrival of either result, not on every device toggle.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [results.mobile, results.desktop]);
+
+  async function runOne(target: string, s: Strategy): Promise<PageSpeedResult | null> {
+    const res = await fetch("/api/v1/pagespeed", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url: target, strategy: s }),
+    });
+    const json = (await res.json()) as ApiResp;
+    if (!json.ok) throw new Error(json.error.message);
+    return json.data.result;
+  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     const target = normaliseUrl(url);
     if (!target) return;
     setError(null);
-    setResult(null);
+    setResults({ mobile: null, desktop: null });
     setPreviewUrl(target);
     setLoading(true);
     try {
-      const res = await fetch("/api/v1/pagespeed", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: target, strategy }),
-      });
-      const json = (await res.json()) as ApiResp;
-      if (!json.ok) setError(json.error.message);
-      else setResult(json.data.result);
+      const [mobile, desktop] = await Promise.all([
+        runOne(target, "mobile").catch((err) => {
+          throw err instanceof Error ? err : new Error("Mobile audit failed");
+        }),
+        runOne(target, "desktop").catch((err) => {
+          throw err instanceof Error ? err : new Error("Desktop audit failed");
+        }),
+      ]);
+      setResults({ mobile, desktop });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Request failed");
     } finally {
@@ -90,8 +107,6 @@ export function PageSpeedTool() {
       <Hero
         url={url}
         setUrl={setUrl}
-        strategy={strategy}
-        setStrategy={setStrategy}
         device={device}
         setDevice={setDevice}
         previewUrl={previewUrl}
@@ -100,9 +115,9 @@ export function PageSpeedTool() {
         onSubmit={onSubmit}
       />
 
-      {result && (
-        <div ref={resultsRef} className="container w-full max-w-full min-w-0 overflow-x-hidden py-10">
-          <Dashboard result={result} />
+      {activeResult && (
+        <div ref={resultsRef} className="container mx-auto w-full max-w-full min-w-0 overflow-x-hidden px-4 py-10 sm:px-6 lg:px-8">
+          <Dashboard result={activeResult} />
         </div>
       )}
     </div>
@@ -114,8 +129,6 @@ export function PageSpeedTool() {
 function Hero({
   url,
   setUrl,
-  strategy,
-  setStrategy,
   device,
   setDevice,
   previewUrl,
@@ -125,8 +138,6 @@ function Hero({
 }: {
   url: string;
   setUrl: (v: string) => void;
-  strategy: Strategy;
-  setStrategy: (s: Strategy) => void;
   device: Device;
   setDevice: (d: Device) => void;
   previewUrl: string;
@@ -136,7 +147,7 @@ function Hero({
 }) {
   return (
     <section className="border-b border-app bg-gradient-to-b from-[rgb(var(--muted))] to-transparent">
-      <div className="container w-full max-w-full min-w-0 overflow-x-hidden py-12 lg:py-16">
+      <div className="container mx-auto w-full max-w-full min-w-0 overflow-x-hidden px-4 py-12 sm:px-6 lg:px-8 lg:py-16">
         <div className="mb-6 flex items-center gap-2 text-sm text-muted-fg">
           <Link href="/tools" className="hover:text-fg">
             Tools
@@ -145,7 +156,7 @@ function Hero({
           <span className="text-fg">PageSpeed Checker</span>
         </div>
 
-        <div className="grid items-center gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,520px)]">
+        <div className="grid items-center gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,440px)]">
           {/* Left: heading + form */}
           <div>
             <Badge tone="accent">Performance · Core Web Vitals</Badge>
@@ -173,23 +184,12 @@ function Hero({
                     autoComplete="url"
                   />
                 </div>
-                <div className="flex items-center gap-2">
-                  <select
-                    value={strategy}
-                    onChange={(e) => setStrategy(e.target.value as Strategy)}
-                    className="h-10 rounded-lg border border-app bg-app px-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent/40"
-                    aria-label="Strategy"
-                  >
-                    <option value="mobile">Mobile</option>
-                    <option value="desktop">Desktop</option>
-                  </select>
-                  <Button type="submit" size="lg" disabled={loading || !url.trim()}>
-                    {loading ? "Auditing…" : "Run audit"}
-                  </Button>
-                </div>
+                <Button type="submit" size="lg" disabled={loading || !url.trim()}>
+                  {loading ? "Auditing…" : "Run audit"}
+                </Button>
               </div>
               <div className="mt-3 flex items-center gap-3 text-xs text-muted-fg">
-                <span>Average run ≈ 20–30s.</span>
+                <span>Average run ≈ 20–30s · runs both mobile + desktop.</span>
                 <span className="hidden sm:inline">Powered by Google PSI v5.</span>
               </div>
               {error && (
@@ -229,13 +229,21 @@ function DeviceScanner({
   scanning: boolean;
 }) {
   return (
-    <div className="w-full max-w-md">
-      <div className="mb-3 flex items-center justify-center gap-1 rounded-full border border-app bg-card p-1 text-xs">
+    <div className="w-full max-w-sm">
+      <div className="flex justify-center">
+        {device === "mobile" ? (
+          <PhoneMockup url={url} scanning={scanning} />
+        ) : (
+          <LaptopMockup url={url} scanning={scanning} />
+        )}
+      </div>
+
+      <div className="mt-4 flex items-center justify-center gap-1 rounded-full border border-app bg-card p-1 text-xs">
         <button
           type="button"
           onClick={() => setDevice("mobile")}
           className={cn(
-            "rounded-full px-3 py-1.5 font-medium transition",
+            "flex-1 rounded-full px-3 py-1.5 font-medium transition",
             device === "mobile" ? "bg-accent text-white" : "text-muted-fg hover:text-fg",
           )}
         >
@@ -245,7 +253,7 @@ function DeviceScanner({
           type="button"
           onClick={() => setDevice("desktop")}
           className={cn(
-            "rounded-full px-3 py-1.5 font-medium transition",
+            "flex-1 rounded-full px-3 py-1.5 font-medium transition",
             device === "desktop" ? "bg-accent text-white" : "text-muted-fg hover:text-fg",
           )}
         >
@@ -253,11 +261,9 @@ function DeviceScanner({
         </button>
       </div>
 
-      {device === "mobile" ? (
-        <PhoneMockup url={url} scanning={scanning} />
-      ) : (
-        <LaptopMockup url={url} scanning={scanning} />
-      )}
+      <div className="mt-2 text-center text-[11px] text-muted-fg">
+        Live preview · {scanning ? "scanning…" : "idle"}
+      </div>
     </div>
   );
 }
@@ -283,11 +289,11 @@ function ScanningOverlay({ active }: { active: boolean }) {
 
 function PhoneMockup({ url, scanning }: { url: string; scanning: boolean }) {
   return (
-    <div className="mx-auto w-[280px]">
-      <div className="relative aspect-[9/19] rounded-[2.4rem] border-[10px] border-zinc-900 bg-zinc-900 shadow-[0_30px_80px_-20px_rgba(108,70,255,0.35)] dark:border-zinc-800">
+    <div className="mx-auto w-[200px]">
+      <div className="relative aspect-[9/19] rounded-[1.8rem] border-[8px] border-zinc-900 bg-zinc-900 shadow-[0_24px_60px_-20px_rgba(108,70,255,0.35)] dark:border-zinc-800">
         {/* Notch */}
-        <div className="absolute left-1/2 top-1.5 z-10 h-5 w-24 -translate-x-1/2 rounded-b-2xl bg-zinc-900 dark:bg-zinc-950" />
-        <div className="relative h-full w-full overflow-hidden rounded-[1.6rem] bg-white">
+        <div className="absolute left-1/2 top-1 z-10 h-3.5 w-16 -translate-x-1/2 rounded-b-xl bg-zinc-900 dark:bg-zinc-950" />
+        <div className="relative h-full w-full overflow-hidden rounded-[1.2rem] bg-white">
           <iframe
             src={url}
             title="Mobile preview"
@@ -302,22 +308,19 @@ function PhoneMockup({ url, scanning }: { url: string; scanning: boolean }) {
           <ScanningOverlay active={scanning} />
         </div>
       </div>
-      <div className="mt-2 text-center text-[11px] text-muted-fg">
-        Live preview · {scanning ? "scanning…" : "idle"}
-      </div>
     </div>
   );
 }
 
 function LaptopMockup({ url, scanning }: { url: string; scanning: boolean }) {
   return (
-    <div className="mx-auto w-full max-w-[460px]">
-      <div className="relative rounded-t-xl border border-zinc-800 bg-zinc-900 p-2 shadow-[0_30px_80px_-20px_rgba(108,70,255,0.35)]">
-        <div className="mb-2 flex items-center gap-1.5 px-1">
-          <span className="h-2.5 w-2.5 rounded-full bg-rose-500/90" />
-          <span className="h-2.5 w-2.5 rounded-full bg-amber-400/90" />
-          <span className="h-2.5 w-2.5 rounded-full bg-emerald-500/90" />
-          <div className="ml-3 flex-1 truncate rounded-md bg-zinc-800 px-2 py-0.5 text-[10px] text-zinc-400">
+    <div className="mx-auto w-full max-w-[340px]">
+      <div className="relative rounded-t-xl border border-zinc-800 bg-zinc-900 p-1.5 shadow-[0_24px_60px_-20px_rgba(108,70,255,0.35)]">
+        <div className="mb-1.5 flex items-center gap-1 px-1">
+          <span className="h-2 w-2 rounded-full bg-rose-500/90" />
+          <span className="h-2 w-2 rounded-full bg-amber-400/90" />
+          <span className="h-2 w-2 rounded-full bg-emerald-500/90" />
+          <div className="ml-2 flex-1 truncate rounded-md bg-zinc-800 px-2 py-0.5 text-[9px] text-zinc-400">
             {url || "https://example.com"}
           </div>
         </div>
@@ -334,11 +337,8 @@ function LaptopMockup({ url, scanning }: { url: string; scanning: boolean }) {
         </div>
       </div>
       {/* Laptop base */}
-      <div className="mx-auto h-2 w-[110%] -translate-x-[5%] rounded-b-xl bg-zinc-800" />
-      <div className="mx-auto h-1.5 w-[60%] rounded-b-xl bg-zinc-700/70" />
-      <div className="mt-2 text-center text-[11px] text-muted-fg">
-        Live preview · {scanning ? "scanning…" : "idle"}
-      </div>
+      <div className="mx-auto h-1.5 w-[110%] -translate-x-[5%] rounded-b-xl bg-zinc-800" />
+      <div className="mx-auto h-1 w-[60%] rounded-b-xl bg-zinc-700/70" />
     </div>
   );
 }

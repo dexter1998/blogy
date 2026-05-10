@@ -32,7 +32,7 @@ export default function Page() {
 
       {/* Sidebar content kept consistent with the other tools, but rendered
           below the hero/dashboard so the scanner can take the full width. */}
-      <div className="container w-full max-w-full min-w-0 overflow-x-hidden pb-16">
+      <div className="container mx-auto w-full max-w-full min-w-0 overflow-x-hidden px-4 pb-16 sm:px-6 lg:px-8">
         <div className="grid gap-6 lg:grid-cols-3">
           <Card>
             <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-fg">

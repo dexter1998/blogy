@@ -26,5 +26,6 @@ export const COUNTRY_OPTIONS: CountryOption[] = COUNTRIES.map((c) => ({
 
 export const DEFAULT_COUNTRY_OPTION = "US";
 
-export const PAA_LIMIT_OPTIONS = [10, 25, 50, 100] as const;
-export const DEFAULT_PAA_LIMIT = 25;
+/** Per-engine quota choices for the PAA tool — applied to each selected engine. */
+export const PAA_PER_ENGINE_OPTIONS = [5, 10, 15, 20, 25] as const;
+export const DEFAULT_PAA_PER_ENGINE = 10;

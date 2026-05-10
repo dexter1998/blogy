@@ -31,4 +31,8 @@ export const env = {
    * tool. Override via PAGESPEED_API_KEY. */
   pageSpeedApiKey:
     process.env.PAGESPEED_API_KEY ?? "AIzaSyC0acdAOKoMmMIdWYDQL-YD9KQd-q6Vrx4",
+  /** Serper.dev Google Search API key. Used as the primary path for the Google
+   * engine (HTML scraping is captcha-gated). Override via SERPER_API_KEY. */
+  serperApiKey:
+    process.env.SERPER_API_KEY ?? "c7abf8feb44d12c946251738b96a4e5394d1f958",
 };
