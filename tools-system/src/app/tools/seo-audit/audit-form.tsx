@@ -4,30 +4,19 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Badge, Button, Card, CopyButton } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import type { SeoAuditResult } from "@/scrapers/seo-audit/types";
-import type { MetadataResult } from "@/scrapers/metadata/types";
-import type { SchemaResult } from "@/scrapers/schema/types";
-import type { SitemapResult } from "@/scrapers/sitemap/types";
+import type {
+  AuditReport,
+  CategoryId,
+  CategoryScore,
+  CheckResult,
+  Grade,
+  ImageAuditResult,
+} from "@/scrapers/seo-audit/report-types";
 import type { PageSpeedResult } from "@/scrapers/pagespeed/types";
-import type { BacklinkResult } from "@/scrapers/backlinks/types";
-import type { GeoResult } from "@/scrapers/geo/types";
-import type { WebsiteIntelligenceResult } from "@/scrapers/website-intelligence/types";
 
-type Ok<T> = { ok: true; data: { result: T }; meta?: unknown };
-type Err = { ok: false; error: { message: string } };
-type ApiResp<T> = Ok<T> | Err;
-
-type AggregatedData = {
-  audit: SeoAuditResult | null;
-  metadata: MetadataResult | null;
-  schema: SchemaResult | null;
-  sitemap: SitemapResult | null;
-  pagespeedMobile: PageSpeedResult | null;
-  pagespeedDesktop: PageSpeedResult | null;
-  backlinks: BacklinkResult | null;
-  geo: GeoResult | null;
-  intelligence: WebsiteIntelligenceResult | null;
-  missing: string[];
-};
+type ApiResp =
+  | { ok: true; data: { result: SeoAuditResult }; meta: { durationMs: number } }
+  | { ok: false; error: { message: string } };
 
 // ── helpers ─────────────────────────────────────────────────────────────
 
@@ -46,97 +35,181 @@ function hostOf(u: string): string {
   }
 }
 
-function gradeFromScore(score: number): "A+" | "A" | "B" | "C+" | "C" | "D" | "F" {
-  if (score >= 95) return "A+";
-  if (score >= 85) return "A";
-  if (score >= 70) return "B";
-  if (score >= 60) return "C+";
-  if (score >= 50) return "C";
-  if (score >= 35) return "D";
-  return "F";
-}
-
-function gradeTone(g: string): "good" | "warn" | "bad" {
-  if (g.startsWith("A")) return "good";
-  if (g.startsWith("B")) return "good";
-  if (g.startsWith("C")) return "warn";
-  if (g.startsWith("D")) return "warn";
+function gradeTone(g: Grade): "good" | "warn" | "bad" {
+  if (g === "A+" || g === "A" || g === "B") return "good";
+  if (g === "C" || g === "D") return "warn";
   return "bad";
 }
 
-async function tryFetch<T>(endpoint: string, body: unknown): Promise<T | null> {
+function scoreTone(score: number): "good" | "warn" | "bad" {
+  if (score >= 75) return "good";
+  if (score >= 50) return "warn";
+  return "bad";
+}
+
+function fmtMs(ms: number | null | undefined): string {
+  if (ms == null) return "—";
+  return ms >= 1000 ? `${(ms / 1000).toFixed(1)} s` : `${Math.round(ms)} ms`;
+}
+
+function fmtKb(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
+}
+
+function pathOf(u: string): string {
   try {
-    const res = await fetch(endpoint, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    const json = (await res.json()) as ApiResp<T>;
-    return json.ok ? json.data.result : null;
+    return new URL(u).pathname || u;
   } catch {
-    return null;
+    return u;
   }
 }
 
-// ── UI bits ─────────────────────────────────────────────────────────────
+// ── small UI primitives ─────────────────────────────────────────────────
 
-function GradeRing({ grade, size = 88 }: { grade: string; size?: number }) {
-  const tone = gradeTone(grade);
-  const ring = tone === "good" ? "border-emerald-500" : tone === "warn" ? "border-amber-500" : "border-rose-500";
-  const text = tone === "good" ? "text-emerald-600 dark:text-emerald-400" : tone === "warn" ? "text-amber-600 dark:text-amber-400" : "text-rose-600 dark:text-rose-400";
+function ScoreGauge({
+  score,
+  size = 96,
+  grade,
+}: {
+  score: number;
+  size?: number;
+  grade?: Grade;
+}) {
+  const tone = scoreTone(score);
+  const color =
+    tone === "good"
+      ? "rgb(16 185 129)"
+      : tone === "warn"
+        ? "rgb(245 158 11)"
+        : "rgb(244 63 94)";
+  const trackColor = "rgb(228 228 231)";
+  const stroke = Math.max(6, Math.round(size * 0.08));
+  const r = (size - stroke) / 2;
+  const c = 2 * Math.PI * r;
+  const pct = Math.min(100, Math.max(0, score));
+  const dash = (pct / 100) * c;
   return (
     <div
-      className={cn("flex items-center justify-center rounded-full border-[5px] bg-card font-semibold tabular-nums", ring, text)}
-      style={{ width: size, height: size, fontSize: size / 2.4 }}
+      className="relative inline-flex items-center justify-center"
+      style={{ width: size, height: size }}
     >
-      {grade}
-    </div>
-  );
-}
-
-function CheckRow({
-  ok,
-  title,
-  body,
-  detail,
-}: {
-  ok: boolean | "info";
-  title: string;
-  body?: ReactNode;
-  detail?: ReactNode;
-}) {
-  const mark = ok === true ? "✓" : ok === false ? "✕" : "i";
-  const tone = ok === true ? "text-emerald-600 dark:text-emerald-400" : ok === false ? "text-rose-600 dark:text-rose-400" : "text-muted-fg";
-  return (
-    <div className="flex items-start justify-between gap-4 border-t border-app py-3 first:border-0">
-      <div className="min-w-0 flex-1">
-        <div className="text-sm font-semibold">{title}</div>
-        {body && <div className="mt-1 text-xs text-muted-fg">{body}</div>}
-        {detail && <div className="mt-2">{detail}</div>}
+      <svg width={size} height={size} className="-rotate-90">
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          fill="none"
+          stroke={trackColor}
+          strokeWidth={stroke}
+          className="opacity-40 dark:opacity-20"
+        />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          fill="none"
+          stroke={color}
+          strokeWidth={stroke}
+          strokeDasharray={`${dash} ${c - dash}`}
+          strokeLinecap="round"
+        />
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center leading-none">
+        <span
+          className={cn(
+            "font-semibold tabular-nums",
+            tone === "good" && "text-emerald-600 dark:text-emerald-400",
+            tone === "warn" && "text-amber-600 dark:text-amber-400",
+            tone === "bad" && "text-rose-600 dark:text-rose-400",
+          )}
+          style={{ fontSize: size / 3.2 }}
+        >
+          {Math.round(score)}
+        </span>
+        {grade && (
+          <span className="mt-0.5 text-[10px] uppercase tracking-wider text-muted-fg">
+            {grade}
+          </span>
+        )}
       </div>
-      <div className={cn("flex h-5 w-5 shrink-0 items-center justify-center text-base font-bold", tone)}>{mark}</div>
     </div>
   );
 }
 
-function Pill({ children, tone = "neutral" }: { children: ReactNode; tone?: "good" | "warn" | "bad" | "neutral" }) {
+function SeverityPill({ severity }: { severity: CheckResult["severity"] }) {
+  const map: Record<CheckResult["severity"], { label: string; tone: "good" | "warn" | "bad" | "neutral" }> = {
+    critical: { label: "Critical", tone: "bad" },
+    warning: { label: "Warning", tone: "warn" },
+    pass: { label: "Passed", tone: "good" },
+    info: { label: "Info", tone: "neutral" },
+  };
+  const m = map[severity];
+  const cls = {
+    good: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300",
+    warn: "bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300",
+    bad: "bg-rose-100 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300",
+    neutral: "bg-muted text-muted-fg",
+  }[m.tone];
+  return (
+    <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider", cls)}>
+      {m.label}
+    </span>
+  );
+}
+
+function StatusIcon({ status }: { status: CheckResult["status"] }) {
+  const c = {
+    pass: "text-emerald-500",
+    warn: "text-amber-500",
+    fail: "text-rose-500",
+    info: "text-zinc-400",
+    skipped: "text-zinc-300",
+  }[status];
+  const glyph = status === "pass" ? "✓" : status === "fail" ? "✕" : status === "warn" ? "!" : "i";
+  return (
+    <span
+      className={cn(
+        "flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-xs font-bold",
+        c,
+        "border-current",
+      )}
+    >
+      {glyph}
+    </span>
+  );
+}
+
+function Pill({ children, tone = "neutral" }: { children: ReactNode; tone?: "good" | "warn" | "bad" | "neutral" | "accent" }) {
   const t = {
-    good: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300",
-    warn: "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300",
-    bad: "bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300",
+    good: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300",
+    warn: "bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300",
+    bad: "bg-rose-100 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300",
+    accent: "bg-brand-100 text-brand-700 dark:bg-brand-900 dark:text-brand-200",
     neutral: "bg-muted text-muted-fg",
   }[tone];
-  return <span className={cn("inline-flex items-center rounded px-2 py-0.5 text-[11px] font-medium", t)}>{children}</span>;
+  return <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium", t)}>{children}</span>;
 }
 
-function Table({ headers, rows }: { headers: string[]; rows: ReactNode[][] }) {
+function Stat({ label, value, hint }: { label: string; value: ReactNode; hint?: string }) {
+  return (
+    <div className="rounded-lg border border-app bg-card p-3">
+      <div className="text-[11px] uppercase tracking-wider text-muted-fg">{label}</div>
+      <div className="mt-1 text-lg font-semibold tabular-nums">{value}</div>
+      {hint && <div className="mt-0.5 text-[11px] text-muted-fg">{hint}</div>}
+    </div>
+  );
+}
+
+function Table({ headers, rows, dense = false }: { headers: string[]; rows: ReactNode[][]; dense?: boolean }) {
   return (
     <div className="overflow-x-auto rounded-lg border border-app">
       <table className="w-full text-sm">
         <thead className="bg-muted/40">
           <tr>
             {headers.map((h) => (
-              <th key={h} className="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-fg">
+              <th key={h} className={cn("text-left text-[11px] font-semibold uppercase tracking-wider text-muted-fg", dense ? "px-2 py-1.5" : "px-3 py-2")}>
                 {h}
               </th>
             ))}
@@ -146,7 +219,7 @@ function Table({ headers, rows }: { headers: string[]; rows: ReactNode[][] }) {
           {rows.map((r, i) => (
             <tr key={i} className="border-t border-app">
               {r.map((c, j) => (
-                <td key={j} className="px-3 py-2 align-top">
+                <td key={j} className={cn("align-top", dense ? "px-2 py-1.5" : "px-3 py-2")}>
                   {c}
                 </td>
               ))}
@@ -158,201 +231,138 @@ function Table({ headers, rows }: { headers: string[]; rows: ReactNode[][] }) {
   );
 }
 
-function SectionCard({ id, title, grade, children }: { id: string; title: string; grade?: string; children: ReactNode }) {
+// ── section + check card ───────────────────────────────────────────────
+
+function Section({ id, title, subtitle, action, children }: { id: string; title: string; subtitle?: string; action?: ReactNode; children: ReactNode }) {
   return (
     <section id={id} className="scroll-mt-24">
-      <Card className="overflow-hidden">
-        <div className="mb-4 flex items-center justify-between gap-3 border-b border-app pb-3">
+      <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+        <div>
           <h2 className="text-lg font-semibold">{title}</h2>
-          {grade && <GradeRing grade={grade} size={56} />}
+          {subtitle && <p className="text-xs text-muted-fg">{subtitle}</p>}
         </div>
-        {children}
-      </Card>
+        {action}
+      </div>
+      <div className="space-y-3">{children}</div>
     </section>
   );
 }
 
-// ── main ────────────────────────────────────────────────────────────────
-
-const TABS: Array<{ id: string; label: string }> = [
-  { id: "overview", label: "Overview" },
-  { id: "recommendations", label: "Recommendations" },
-  { id: "on-page", label: "On-Page SEO" },
-  { id: "geo", label: "GEO" },
-  { id: "rankings", label: "Rankings" },
-  { id: "links", label: "Links" },
-  { id: "usability", label: "Usability" },
-  { id: "performance", label: "Performance" },
-  { id: "social", label: "Social" },
-  { id: "local", label: "Local SEO" },
-  { id: "tech", label: "Technology" },
-  { id: "child-pages", label: "Child Pages" },
-];
-
-export function AuditForm() {
-  const [url, setUrl] = useState("blogy.in");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [data, setData] = useState<AggregatedData | null>(null);
-  const [activeTab, setActiveTab] = useState<string>("overview");
-  const resultsRef = useRef<HTMLDivElement | null>(null);
-
+function CheckCard({ c, defaultOpen = false }: { c: CheckResult; defaultOpen?: boolean }) {
+  const [open, setOpen] = useState(defaultOpen);
+  const [forceOpen, setForceOpen] = useState(false);
   useEffect(() => {
-    if (data && resultsRef.current) {
-      resultsRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-  }, [data]);
-
-  // Scrollspy: update active tab as user scrolls.
-  useEffect(() => {
-    if (!data) return;
-    const obs = new IntersectionObserver(
-      (entries) => {
-        const visible = entries
-          .filter((e) => e.isIntersecting)
-          .sort((a, b) => (a.boundingClientRect.top - b.boundingClientRect.top));
-        if (visible[0]) setActiveTab(visible[0].target.id);
-      },
-      { rootMargin: "-100px 0px -60% 0px", threshold: 0 },
-    );
-    for (const t of TABS) {
-      const el = document.getElementById(t.id);
-      if (el) obs.observe(el);
-    }
-    return () => obs.disconnect();
-  }, [data]);
-
-  async function run(target: string) {
-    setError(null);
-    setData(null);
-    setLoading(true);
-
-    const missing: string[] = [];
-    const origin = (() => {
-      try { return new URL(target).origin; } catch { return target; }
-    })();
-
-    // Run everything in parallel; each call is best-effort.
-    const [audit, metadata, schema, sitemap, psMobile, psDesktop, backlinks, geo, intelligence] = await Promise.all([
-      tryFetch<SeoAuditResult>("/api/v1/seo-audit", { url: target }),
-      tryFetch<MetadataResult>("/api/v1/metadata", { url: target }),
-      tryFetch<SchemaResult>("/api/v1/schema", { url: target }),
-      tryFetch<SitemapResult>("/api/v1/sitemap", { url: origin }),
-      tryFetch<PageSpeedResult>("/api/v1/pagespeed", { url: target, strategy: "mobile" }),
-      tryFetch<PageSpeedResult>("/api/v1/pagespeed", { url: target, strategy: "desktop" }),
-      tryFetch<BacklinkResult>("/api/v1/backlinks", { url: target }),
-      tryFetch<GeoResult>("/api/v1/geo", { url: target }),
-      tryFetch<WebsiteIntelligenceResult>("/api/v1/website-intelligence", { url: target }),
-    ]);
-
-    if (!audit) missing.push("SEO audit composite (/api/v1/seo-audit)");
-    if (!metadata) missing.push("Metadata (/api/v1/metadata)");
-    if (!schema) missing.push("Schema (/api/v1/schema)");
-    if (!sitemap) missing.push("Sitemap (/api/v1/sitemap)");
-    if (!psMobile) missing.push("PageSpeed Mobile (/api/v1/pagespeed?strategy=mobile)");
-    if (!psDesktop) missing.push("PageSpeed Desktop (/api/v1/pagespeed?strategy=desktop)");
-    if (!backlinks) missing.push("Backlinks (/api/v1/backlinks)");
-    if (!geo) missing.push("GEO (/api/v1/geo)");
-    if (!intelligence) missing.push("Website Intelligence (/api/v1/website-intelligence)");
-
-    // Known gaps vs the SEOptimer report we are mirroring.
-    missing.push("Google Business Profile lookup — no internal API");
-    missing.push("Top Organic Keyword Rankings — no internal API");
-    missing.push("Domain Strength / Page Strength gauge values — surfaced via /api/v1/da-pa (not yet wired)");
-
-    if (!audit && !metadata) {
-      setError("All scans failed. Check the URL.");
-      setLoading(false);
-      return;
-    }
-
-    setData({
-      audit, metadata, schema, sitemap,
-      pagespeedMobile: psMobile, pagespeedDesktop: psDesktop,
-      backlinks, geo, intelligence,
-      missing,
-    });
-    setLoading(false);
-  }
-
-  function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    const target = normaliseUrl(url || "blogy.in");
-    if (!target) return;
-    void run(target);
-  }
-
+    const onPrint = () => setForceOpen(true);
+    const onPrintEnd = () => setForceOpen(false);
+    window.addEventListener("beforeprint", onPrint);
+    window.addEventListener("afterprint", onPrintEnd);
+    return () => {
+      window.removeEventListener("beforeprint", onPrint);
+      window.removeEventListener("afterprint", onPrintEnd);
+    };
+  }, []);
+  const expandable = c.status !== "pass" || c.evidence.length > 0;
+  const isOpen = open || forceOpen;
   return (
-    <div className="space-y-6">
-      <Card>
-        <form onSubmit={onSubmit} className="space-y-3">
-          <label className="text-sm font-medium">Website URL</label>
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <input
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              placeholder="blogy.in"
-              className="flex-1 rounded-lg border border-app bg-app px-3 py-2 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-accent"
-            />
-            <Button type="submit" disabled={loading}>
-              {loading ? "Auditing…" : "Run full audit"}
-            </Button>
+    <Card className="!p-0">
+      <button
+        type="button"
+        onClick={() => expandable && setOpen((v) => !v)}
+        className={cn(
+          "flex w-full items-start gap-3 p-4 text-left",
+          expandable && "cursor-pointer hover:bg-muted/30",
+        )}
+        aria-expanded={isOpen}
+      >
+        <StatusIcon status={c.status} />
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-semibold">{c.title}</span>
+            <SeverityPill severity={c.severity} />
           </div>
-          {loading && (
-            <div className="rounded border border-app bg-muted/30 p-3 text-xs text-muted-fg">
-              Running 9 scans in parallel — this can take 20–40 seconds on a cold cache.
+          <div className="mt-1 text-sm text-muted-fg">{c.summary}</div>
+        </div>
+        {expandable && (
+          <span className={cn("ml-2 text-muted-fg transition-transform", isOpen && "rotate-180")}>▾</span>
+        )}
+      </button>
+      {isOpen && expandable && (
+        <div className="border-t border-app bg-muted/20 p-4 text-sm">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <div className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-fg">Why it matters</div>
+              <p className="text-sm">{c.whyItMatters}</p>
+            </div>
+            <div>
+              <div className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-fg">How to fix</div>
+              <p className="text-sm">{c.howToFix}</p>
+            </div>
+          </div>
+          {c.evidence.length > 0 && (
+            <div className="mt-4">
+              <div className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-fg">Evidence</div>
+              <Table
+                dense
+                headers={["Signal", "Value"]}
+                rows={c.evidence.map((e) => [
+                  <span key="l" className="text-muted-fg">{e.label}</span>,
+                  Array.isArray(e.value) ? (
+                    <ul key="v" className="space-y-0.5 break-all font-mono text-xs">
+                      {e.value.slice(0, 8).map((v, i) => (
+                        <li key={i}>{v}</li>
+                      ))}
+                      {e.value.length > 8 && <li className="text-muted-fg">+ {e.value.length - 8} more</li>}
+                    </ul>
+                  ) : (
+                    <span key="v" className="break-all font-mono text-xs">{String(e.value)}</span>
+                  ),
+                ])}
+              />
             </div>
           )}
-          {error && (
-            <p className="rounded border border-rose-300 bg-rose-50 p-2 text-sm text-rose-700 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-300">
-              {error}
-            </p>
-          )}
-        </form>
-      </Card>
-
-      {data && (
-        <div ref={resultsRef}>
-          <TabBar active={activeTab} onChange={(id) => {
-            setActiveTab(id);
-            const el = document.getElementById(id);
-            if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-          }} />
-          <div className="mt-4 space-y-6">
-            <Overview data={data} url={url} />
-            <Recommendations data={data} />
-            <OnPageSection data={data} />
-            <GeoSection data={data} />
-            <RankingsSection />
-            <LinksSection data={data} />
-            <UsabilitySection data={data} />
-            <PerformanceSection data={data} />
-            <SocialSection data={data} />
-            <LocalSection data={data} />
-            <TechSection data={data} />
-            <ChildPagesSection data={data} />
-            <MissingDataNote missing={data.missing} />
-            <Card>
-              <div className="mb-3 flex items-center justify-between">
-                <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-fg">Raw API response (composite)</h3>
-                <CopyButton text={JSON.stringify(data, null, 2)} />
+          {c.affectedUrls && c.affectedUrls.length > 0 && (
+            <div className="mt-4">
+              <div className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-fg">
+                Affected URLs ({c.affectedUrls.length})
               </div>
-              <pre className="code-block max-h-96 overflow-auto text-xs">{JSON.stringify(data, null, 2)}</pre>
-            </Card>
-          </div>
+              <ul className="space-y-1 break-all font-mono text-xs">
+                {c.affectedUrls.slice(0, 10).map((u) => (
+                  <li key={u}>{u}</li>
+                ))}
+                {c.affectedUrls.length > 10 && (
+                  <li className="text-muted-fg">+ {c.affectedUrls.length - 10} more</li>
+                )}
+              </ul>
+            </div>
+          )}
         </div>
       )}
-    </div>
+    </Card>
   );
 }
 
-// ── Tab bar ─────────────────────────────────────────────────────────────
+// ── nav ─────────────────────────────────────────────────────────────────
 
-function TabBar({ active, onChange }: { active: string; onChange: (id: string) => void }) {
+const NAV: Array<{ id: string; label: string }> = [
+  { id: "summary", label: "Summary" },
+  { id: "critical", label: "Critical" },
+  { id: "warnings", label: "Warnings" },
+  { id: "passed", label: "Passed" },
+  { id: "categories", label: "All checks" },
+  { id: "performance", label: "Performance" },
+  { id: "schema", label: "Schema" },
+  { id: "links", label: "Links" },
+  { id: "social", label: "Social" },
+  { id: "tech", label: "Technology" },
+  { id: "sitemap", label: "Sitemap" },
+  { id: "raw", label: "Raw JSON" },
+];
+
+function NavBar({ active, onChange }: { active: string; onChange: (id: string) => void }) {
   return (
-    <div className="sticky top-0 z-30 -mx-1 overflow-x-auto rounded-lg border border-app bg-card/90 px-1 py-2 shadow-sm backdrop-blur">
+    <div className="sticky top-0 z-30 -mx-1 overflow-x-auto rounded-lg border border-app bg-card/95 px-1 py-2 shadow-sm backdrop-blur">
       <div className="flex gap-1">
-        {TABS.map((t) => (
+        {NAV.map((t) => (
           <button
             key={t.id}
             onClick={() => onChange(t.id)}
@@ -369,649 +379,742 @@ function TabBar({ active, onChange }: { active: string; onChange: (id: string) =
   );
 }
 
-// ── Sections ────────────────────────────────────────────────────────────
+// ── main form ──────────────────────────────────────────────────────────
 
-function Overview({ data, url }: { data: AggregatedData; url: string }) {
-  const overall = data.audit?.scores.overall ?? 0;
-  const overallGrade = data.audit ? data.audit.scores.grade : gradeFromScore(overall);
+export function AuditForm() {
+  const [url, setUrl] = useState("blogy.in");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [report, setReport] = useState<AuditReport | null>(null);
+  const [activeNav, setActiveNav] = useState<string>("summary");
+  const resultsRef = useRef<HTMLDivElement | null>(null);
 
-  const cats: Array<{ key: string; label: string; score: number | null }> = [
-    { key: "on-page", label: "On-Page SEO", score: data.metadata?.scores.overall ?? null },
-    { key: "geo", label: "GEO", score: data.geo?.scores.overall ?? null },
-    { key: "links", label: "Links", score: clamp(scaleBacklinks(data.backlinks?.uniqueReferringDomains ?? 0)) },
-    { key: "usability", label: "Usability", score: data.pagespeedMobile?.lab.performanceScore ?? null },
-    { key: "performance", label: "Performance", score: avgScore(data.pagespeedMobile?.scores.overall, data.pagespeedDesktop?.scores.overall) },
-  ];
+  // Load a shared report from the URL hash on first mount.
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (!hash.startsWith("#r=")) return;
+    try {
+      const json = atob(decodeURIComponent(hash.slice(3)));
+      const r = JSON.parse(json) as AuditReport;
+      setReport(r);
+      setUrl(r.url);
+    } catch {
+      /* ignore malformed share links */
+    }
+  }, []);
+
+  useEffect(() => {
+    if (report && resultsRef.current) {
+      resultsRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [report]);
+
+  useEffect(() => {
+    if (!report) return;
+    const obs = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((e) => e.isIntersecting)
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+        if (visible[0]) setActiveNav(visible[0].target.id);
+      },
+      { rootMargin: "-90px 0px -60% 0px", threshold: 0 },
+    );
+    for (const t of NAV) {
+      const el = document.getElementById(t.id);
+      if (el) obs.observe(el);
+    }
+    return () => obs.disconnect();
+  }, [report]);
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const target = normaliseUrl(url || "blogy.in");
+    if (!target) return;
+    setError(null);
+    setReport(null);
+    setLoading(true);
+    try {
+      const res = await fetch("/api/v1/seo-audit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: target }),
+      });
+      const json = (await res.json()) as ApiResp;
+      if (!json.ok) {
+        setError(json.error.message);
+      } else {
+        setReport(json.data.result.report);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Request failed");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function exportJson() {
+    if (!report) return;
+    const blob = new Blob([JSON.stringify(report, null, 2)], { type: "application/json" });
+    triggerDownload(blob, `seo-audit-${hostOf(report.url)}.json`);
+  }
+
+  function exportCsv() {
+    if (!report) return;
+    const rows = [
+      ["id", "title", "category", "status", "severity", "summary", "whyItMatters", "howToFix"],
+      ...report.checks.map((c) => [
+        c.id,
+        c.title,
+        c.category,
+        c.status,
+        c.severity,
+        c.summary,
+        c.whyItMatters,
+        c.howToFix,
+      ]),
+    ];
+    const csv = rows.map((r) => r.map((v) => `"${String(v).replaceAll('"', '""')}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    triggerDownload(blob, `seo-audit-${hostOf(report.url)}.csv`);
+  }
+
+  function exportPdf() {
+    // Hand off to the browser print dialog. Check cards listen for the
+    // `beforeprint` event and force-expand themselves, and the print
+    // stylesheet (in globals.css) hides nav/form/etc.
+    window.print();
+  }
+
+  function shareLink() {
+    if (!report) return;
+    // Compact payload — drop bulky raw fetched objects to keep URL workable.
+    const compact: AuditReport = {
+      ...report,
+      signals: {
+        ...report.signals,
+        intelligence: null,
+        backlinks: null,
+        sitemap: null,
+        schema: report.signals.schema
+          ? {
+              ...report.signals.schema,
+              items: [],
+            }
+          : null,
+      },
+    };
+    const enc = encodeURIComponent(btoa(JSON.stringify(compact)));
+    const url = `${window.location.origin}${window.location.pathname}#r=${enc}`;
+    void navigator.clipboard.writeText(url).then(() => {
+      alert("Share link copied to clipboard.");
+    });
+  }
 
   return (
-    <SectionCard id="overview" title={`Audit Results for ${hostOf(url)}`} grade={overallGrade}>
-      <div className="grid gap-6 md:grid-cols-[1fr_320px]">
-        <div className="space-y-4">
-          <div>
-            <div className="text-sm text-muted-fg">Your page could be better</div>
-            <div className="mt-2 inline-flex items-center gap-2 rounded-full bg-rose-50 px-3 py-1 text-xs font-medium text-rose-700 dark:bg-rose-950/40 dark:text-rose-300">
-              Recommendations: {(data.audit?.totals.errors ?? 0) + (data.audit?.totals.warnings ?? 0)}
-            </div>
+    <div className="space-y-6">
+      <Card>
+        <form onSubmit={onSubmit} className="space-y-3">
+          <label className="text-sm font-medium">Website URL</label>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <input
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              placeholder="blogy.in"
+              className="min-w-0 flex-1 rounded-lg border border-app bg-app px-3 py-2 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-accent"
+            />
+            <Button type="submit" disabled={loading}>
+              {loading ? "Auditing…" : "Run full audit"}
+            </Button>
           </div>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-            {cats.map((c) => (
-              <a key={c.key} href={`#${c.key}`} className="rounded-lg border border-app p-3 text-center transition hover:bg-muted/40">
-                <GradeRing grade={c.score == null ? "?" : gradeFromScore(c.score)} size={48} />
-                <div className="mt-2 text-[11px] font-medium uppercase tracking-wider text-muted-fg">{c.label}</div>
-              </a>
+          {loading && (
+            <div className="rounded border border-app bg-muted/30 p-3 text-xs text-muted-fg">
+              Running ~50 checks across 9 internal scans — usually 20–40 seconds on a cold cache.
+            </div>
+          )}
+          {error && (
+            <p className="rounded border border-rose-300 bg-rose-50 p-2 text-sm text-rose-700 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-300">
+              {error}
+            </p>
+          )}
+        </form>
+      </Card>
+
+      {report && (
+        <div ref={resultsRef} className="min-w-0 space-y-6">
+          <NavBar
+            active={activeNav}
+            onChange={(id) => {
+              setActiveNav(id);
+              const el = document.getElementById(id);
+              if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+            }}
+          />
+
+          <Summary report={report} onExportJson={exportJson} onExportCsv={exportCsv} onExportPdf={exportPdf} onShare={shareLink} />
+          <CriticalSection report={report} />
+          <WarningsSection report={report} />
+          <PassedSection report={report} />
+          <CategoriesSection report={report} />
+          <PerformanceSection report={report} />
+          <SchemaSection report={report} />
+          <LinksSection report={report} />
+          <SocialSection report={report} />
+          <TechSection report={report} />
+          <SitemapSection report={report} />
+          <RawSection report={report} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── sections ────────────────────────────────────────────────────────────
+
+function Summary({
+  report,
+  onExportJson,
+  onExportCsv,
+  onExportPdf,
+  onShare,
+}: {
+  report: AuditReport;
+  onExportJson: () => void;
+  onExportCsv: () => void;
+  onExportPdf: () => void;
+  onShare: () => void;
+}) {
+  const failures = report.fetchFailures;
+  return (
+    <Section id="summary" title={`Audit Results for ${hostOf(report.url)}`} subtitle={new Date(report.fetchedAt).toUTCString()}>
+      <Card>
+        <div className="grid gap-6 md:grid-cols-[auto_1fr_auto]">
+          <div className="flex flex-col items-center gap-2">
+            <ScoreGauge score={report.overall.score} size={128} grade={report.overall.grade} />
+            <div className="text-xs uppercase tracking-wider text-muted-fg">Overall</div>
+          </div>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {report.categories.map((c) => (
+              <CategoryTile key={c.category} c={c} />
             ))}
           </div>
-          <div className="text-xs text-muted-fg">
-            Report Generated: {data.audit?.fetchedAt ? new Date(data.audit.fetchedAt).toUTCString() : "—"}
+          <div className="flex flex-col gap-2 sm:items-end">
+            <div className="flex flex-wrap gap-1">
+              <Badge tone="bad">{report.prioritised.critical.length} critical</Badge>
+              <Badge tone="warn">{report.prioritised.warnings.length} warning</Badge>
+              <Badge tone="good">{report.prioritised.passed.length} passed</Badge>
+            </div>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <Button variant="ghost" size="sm" onClick={onExportJson}>
+                Export JSON
+              </Button>
+              <Button variant="ghost" size="sm" onClick={onExportCsv}>
+                Export CSV
+              </Button>
+              <Button variant="ghost" size="sm" onClick={onExportPdf}>
+                Print / PDF
+              </Button>
+              <Button variant="ghost" size="sm" onClick={onShare}>
+                Share link
+              </Button>
+            </div>
+            <a
+              href={`/api/v1/seo-audit?url=${encodeURIComponent(report.url)}`}
+              target="_blank"
+              rel="noreferrer"
+              className="text-xs text-accent hover:underline"
+            >
+              View as JSON API →
+            </a>
           </div>
         </div>
-        <div className="rounded-lg border border-app bg-muted/20 p-3">
-          <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-fg">Page</div>
-          <div className="break-all font-mono text-xs">{data.audit?.finalUrl ?? url}</div>
-          {data.metadata?.basic.title && (
-            <>
-              <div className="mt-3 text-[11px] font-semibold uppercase tracking-wider text-muted-fg">Title</div>
-              <div className="text-sm">{data.metadata.basic.title}</div>
-            </>
-          )}
-        </div>
-      </div>
-    </SectionCard>
+        {failures.length > 0 && (
+          <div className="mt-4 rounded border border-amber-300 bg-amber-50 p-3 text-xs text-amber-700 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300">
+            <div className="font-semibold">Some signal sources failed (audit ran in degraded mode):</div>
+            <ul className="mt-1 list-disc pl-4">
+              {failures.map((f, i) => (
+                <li key={i}>{f}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </Card>
+    </Section>
   );
 }
 
-function Recommendations({ data }: { data: AggregatedData }) {
-  const recs: Array<{ title: string; cat: string; priority: "high" | "med" | "low" }> = [];
-
-  if ((data.backlinks?.uniqueReferringDomains ?? 0) < 50) {
-    recs.push({ title: "Execute a Link Building Strategy", cat: "Links", priority: "high" });
-  }
-  if (data.pagespeedMobile && (data.pagespeedMobile.lab.performanceScore ?? 100) < 90) {
-    recs.push({ title: "Optimize for Mobile PageSpeed Insights", cat: "Usability", priority: "low" });
-  }
-  if (data.pagespeedDesktop && (data.pagespeedDesktop.lab.performanceScore ?? 100) < 90) {
-    recs.push({ title: "Optimize for Desktop PageSpeed Insights", cat: "Usability", priority: "low" });
-  }
-  const tLen = data.metadata?.basic.titleLength ?? 0;
-  if (tLen && (tLen < 50 || tLen > 60)) recs.push({ title: "Adjust length of Title Tag (50–60 chars)", cat: "On-Page SEO", priority: "med" });
-  const dLen = data.metadata?.basic.descriptionLength ?? 0;
-  if (dLen && (dLen < 120 || dLen > 160)) recs.push({ title: "Adjust length of Meta Description (120–160 chars)", cat: "On-Page SEO", priority: "med" });
-
-  // Image alt attributes
-  const intel = data.intelligence;
-  if (intel) {
-    const totalImgs = intel.signals.performance.totalImages;
-    if (totalImgs > 0) recs.push({ title: "Add Alt Attributes to all images", cat: "On-Page SEO", priority: "low" });
-  }
-
-  if (!intel?.signals.geo.hasLocalBusinessSchema) recs.push({ title: "Add Local Business Schema", cat: "Local SEO", priority: "low" });
-  if (!intel?.signals.social.byPlatform.facebook?.length) recs.push({ title: "Create and link your Facebook Page", cat: "Social", priority: "low" });
-  if (!intel?.signals.pixels.facebookPixelDetected) recs.push({ title: "Install a Facebook Pixel", cat: "Social", priority: "low" });
-  if (intel && (intel.signals.youtube.subscribers ?? 0) < 100) recs.push({ title: "Increase your YouTube Channel subscribers", cat: "Social", priority: "low" });
-
-  // Pull from per-scraper recommendations
-  for (const r of data.geo?.recommendations ?? []) {
-    recs.push({ title: r.message, cat: "GEO", priority: r.priority === "high" ? "high" : r.priority === "medium" ? "med" : "low" });
-  }
-
-  const tone = (p: "high" | "med" | "low") => (p === "high" ? "bad" : p === "med" ? "warn" : "good");
-  const label = (p: "high" | "med" | "low") => (p === "high" ? "High Priority" : p === "med" ? "Medium Priority" : "Low Priority");
-
+function CategoryTile({ c }: { c: CategoryScore }) {
   return (
-    <SectionCard id="recommendations" title="Recommendations">
+    <a
+      href="#categories"
+      className="flex flex-col items-center gap-1 rounded-lg border border-app p-3 text-center transition hover:bg-muted/40"
+    >
+      <ScoreGauge score={c.score} size={56} />
+      <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-fg">{c.label}</div>
+      <div className="text-[10px] text-muted-fg">
+        {c.failures > 0 && <span className="text-rose-600 dark:text-rose-400">{c.failures} fail</span>}
+        {c.failures > 0 && c.warnings > 0 && <span> · </span>}
+        {c.warnings > 0 && <span className="text-amber-600 dark:text-amber-400">{c.warnings} warn</span>}
+        {c.failures === 0 && c.warnings === 0 && <span>{c.passed} passed</span>}
+      </div>
+    </a>
+  );
+}
+
+function CriticalSection({ report }: { report: AuditReport }) {
+  const items = report.prioritised.critical;
+  return (
+    <Section id="critical" title="Critical issues" subtitle={`${items.length} issue${items.length === 1 ? "" : "s"} that hurt rankings or indexation`}>
+      {items.length === 0 ? (
+        <Card>
+          <p className="text-sm text-muted-fg">No critical issues — great work.</p>
+        </Card>
+      ) : (
+        items.map((c) => <CheckCard key={c.id} c={c} defaultOpen />)
+      )}
+    </Section>
+  );
+}
+
+function WarningsSection({ report }: { report: AuditReport }) {
+  const items = report.prioritised.warnings;
+  return (
+    <Section id="warnings" title="Warnings" subtitle={`${items.length} issue${items.length === 1 ? "" : "s"} worth fixing`}>
+      {items.length === 0 ? (
+        <Card>
+          <p className="text-sm text-muted-fg">No warnings.</p>
+        </Card>
+      ) : (
+        items.map((c) => <CheckCard key={c.id} c={c} />)
+      )}
+    </Section>
+  );
+}
+
+function PassedSection({ report }: { report: AuditReport }) {
+  const items = report.prioritised.passed;
+  const [open, setOpen] = useState(false);
+  const [forcePrint, setForcePrint] = useState(false);
+  useEffect(() => {
+    const on = () => setForcePrint(true);
+    const off = () => setForcePrint(false);
+    window.addEventListener("beforeprint", on);
+    window.addEventListener("afterprint", off);
+    return () => {
+      window.removeEventListener("beforeprint", on);
+      window.removeEventListener("afterprint", off);
+    };
+  }, []);
+  const expanded = open || forcePrint;
+  return (
+    <Section
+      id="passed"
+      title="Passed checks"
+      subtitle={`${items.length} checks the site is already doing right`}
+      action={
+        <button onClick={() => setOpen((v) => !v)} className="text-xs font-medium text-accent hover:underline">
+          {open ? "Hide" : "Show all"}
+        </button>
+      }
+    >
+      {expanded && items.map((c) => <CheckCard key={c.id} c={c} />)}
+      {!expanded && (
+        <Card>
+          <p className="text-sm text-muted-fg">Click <span className="font-semibold">Show all</span> to expand the {items.length} passed checks.</p>
+        </Card>
+      )}
+    </Section>
+  );
+}
+
+function CategoriesSection({ report }: { report: AuditReport }) {
+  const [active, setActive] = useState<CategoryId>(report.categories[0]?.category ?? "on-page");
+  const items = report.checks.filter((c) => c.category === active);
+  return (
+    <Section id="categories" title="All checks by category" subtitle="Every check, grouped by category">
+      <div className="-mx-1 overflow-x-auto rounded-lg border border-app bg-muted/20 px-1 py-1.5">
+        <div className="flex gap-1">
+          {report.categories.map((c) => (
+            <button
+              key={c.category}
+              onClick={() => setActive(c.category)}
+              className={cn(
+                "whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-medium transition",
+                active === c.category ? "bg-card text-fg shadow-sm" : "text-muted-fg hover:text-fg",
+              )}
+            >
+              {c.label}
+              <span className="ml-1.5 text-[10px] text-muted-fg">{c.score}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+      {items.map((c) => (
+        <CheckCard key={c.id} c={c} />
+      ))}
+    </Section>
+  );
+}
+
+function PerformanceSection({ report }: { report: AuditReport }) {
+  const psM = report.signals.pagespeedMobile;
+  const psD = report.signals.pagespeedDesktop;
+  const ia = report.signals.images;
+  if (!psM && !psD && !ia) return null;
+  return (
+    <Section id="performance" title="Performance" subtitle="Lab + field data from PageSpeed Insights, plus an in-place image audit">
+      <div className="grid gap-4 lg:grid-cols-2">
+        {psM && <PagespeedCard label="Mobile" result={psM} />}
+        {psD && <PagespeedCard label="Desktop" result={psD} />}
+      </div>
+      {ia && <ImageAuditCard ia={ia} />}
+    </Section>
+  );
+}
+
+function PagespeedCard({ label, result }: { label: string; result: PageSpeedResult }) {
+  return (
+    <Card>
+      <div className="mb-3 flex items-center justify-between">
+        <h3 className="text-sm font-semibold">{label} PageSpeed</h3>
+        <ScoreGauge score={result.lab.performanceScore ?? 0} size={48} />
+      </div>
       <Table
-        headers={["Action", "Category", "Priority"]}
-        rows={recs.map((r) => [r.title, <span key="c" className="text-muted-fg">{r.cat}</span>, <Pill key="p" tone={tone(r.priority)}>{label(r.priority)}</Pill>])}
+        dense
+        headers={["Metric", "Value"]}
+        rows={[
+          ["FCP", fmtMs(result.lab.metrics.fcp)],
+          ["LCP", fmtMs(result.lab.metrics.lcp)],
+          ["TTI", fmtMs(result.lab.metrics.tti)],
+          ["TBT", fmtMs(result.lab.metrics.tbt)],
+          ["CLS", result.lab.metrics.cls?.toFixed(3) ?? "—"],
+          ["Speed Index", fmtMs(result.lab.metrics.si)],
+        ]}
       />
-    </SectionCard>
-  );
-}
-
-function OnPageSection({ data }: { data: AggregatedData }) {
-  const m = data.metadata;
-  const intel = data.intelligence;
-  const titleLen = m?.basic.titleLength ?? 0;
-  const descLen = m?.basic.descriptionLength ?? 0;
-  const titleOk = titleLen >= 50 && titleLen <= 60;
-  const descOk = descLen >= 120 && descLen <= 160;
-
-  const headings = intel?.signals.content.headingHierarchy ?? null;
-  const grade = m ? gradeFromScore(m.scores.overall) : "?";
-
-  return (
-    <SectionCard id="on-page" title="On-Page SEO Results" grade={grade}>
-      <div className="mb-3 text-sm">
-        Your On-Page SEO is {m && m.scores.overall >= 70 ? "good" : "needs work"}. {m?.scores.overall ?? "—"}/100 overall.
-      </div>
-
-      <CheckRow
-        ok={!!m?.basic.title && titleOk}
-        title="Title Tag"
-        body={m?.basic.title ? `Length: ${titleLen}` : "Missing"}
-        detail={m?.basic.title && <div className="rounded border border-app bg-muted/20 px-3 py-2 text-xs">{m.basic.title}</div>}
-      />
-      <CheckRow
-        ok={!!m?.basic.description && descOk}
-        title="Meta Description Tag"
-        body={m?.basic.description ? `Length: ${descLen}` : "Missing"}
-        detail={m?.basic.description && <div className="rounded border border-app bg-muted/20 px-3 py-2 text-xs">{m.basic.description}</div>}
-      />
-      <CheckRow
-        ok={"info"}
-        title="SERP Snippet Preview"
-        detail={
-          <div className="rounded border border-app bg-card p-3 text-xs">
-            <div className="text-[11px] text-muted-fg">{m?.finalUrl ?? "—"}</div>
-            <div className="mt-1 text-base font-medium text-blue-700 dark:text-blue-400">{m?.basic.title ?? "—"}</div>
-            <div className="mt-1 text-muted-fg">{m?.basic.description ?? "—"}</div>
-          </div>
-        }
-      />
-      <CheckRow
-        ok={(m?.hreflang.length ?? 0) > 0 ? true : "info"}
-        title="Hreflang Usage"
-        body={(m?.hreflang.length ?? 0) > 0 ? `${m?.hreflang.length} hreflang tag(s)` : "Your page is not making use of Hreflang attributes."}
-      />
-      <CheckRow ok={!!m?.basic.language} title="Language" body={m?.basic.language ? `Declared: ${m.basic.language}` : "No lang attribute"} />
-      <CheckRow ok={(m?.headings.h1.length ?? 0) > 0} title="H1 Header Tag Usage" body={`${m?.headings.h1.length ?? 0} H1 tag(s)`} />
-
-      {headings && (
-        <CheckRow
-          ok={(headings.h2 + headings.h3) > 0}
-          title="H2–H6 Header Tag Usage"
-          detail={
-            <Table
-              headers={["Header Tag", "Frequency"]}
-              rows={[
-                ["H2", headings.h2],
-                ["H3", headings.h3],
-                ["H4", headings.h4],
-              ]}
-            />
-          }
-        />
-      )}
-
-      <CheckRow
-        ok={(intel?.signals.content.wordCount ?? 0) >= 600}
-        title="Amount of Content"
-        body={`Word Count: ${(intel?.signals.content.wordCount ?? 0).toLocaleString()}`}
-      />
-
-      {intel && (
-        <CheckRow
-          ok={intel.signals.performance.totalImages > 0 && intel.signals.performance.lazyLoadingImages === intel.signals.performance.totalImages ? "info" : false}
-          title="Image Alt Attributes"
-          body={`Found ${intel.signals.performance.totalImages} image(s) on the page.`}
-        />
-      )}
-
-      <CheckRow ok={!!m?.basic.canonical} title="Canonical Tag" body={m?.basic.canonical ?? "Missing"} />
-      <CheckRow ok={!/noindex/i.test(m?.basic.robots ?? "")} title="Noindex Tag Test" body="Your page is not using the Noindex Tag." />
-      <CheckRow ok={intel?.signals.security.https ?? false} title="SSL Enabled" body="Your website has SSL enabled." />
-      <CheckRow ok={intel?.signals.security.https ?? false} title="HTTPS Redirect" body="Your page successfully redirects to a HTTPS version." />
-      <CheckRow ok={intel?.signals.sitemap.robotsTxtFound ?? false} title="Robots.txt" body={intel?.signals.sitemap.robotsTxtUrl ?? "—"} />
-      <CheckRow ok={(intel?.signals.sitemap.sitemapsDiscovered.length ?? 0) > 0} title="XML Sitemaps" body={(intel?.signals.sitemap.sitemapsDiscovered[0]) ?? "—"} />
-      <CheckRow ok={(intel?.signals.analytics.detected.length ?? 0) > 0} title="Analytics" body={intel?.signals.analytics.detected.join(", ") || "None detected"} />
-      <CheckRow ok={(data.schema?.totalItems ?? 0) > 0} title="Schema.org Structured Data" body={data.schema ? `${data.schema.totalItems} item(s) · ${data.schema.detectedTypes.slice(0, 4).join(", ")}` : "None"} />
-    </SectionCard>
-  );
-}
-
-function GeoSection({ data }: { data: AggregatedData }) {
-  const g = data.geo;
-  const intel = data.intelligence;
-  const grade = g ? gradeFromScore(g.scores.overall) : "?";
-
-  return (
-    <SectionCard id="geo" title="Generative Engine Optimization (GEO)" grade={grade}>
-      <div className="mb-3 text-sm">
-        {g && g.scores.overall >= 80 ? "Your Generative Engine Optimization is very good!" : "GEO could be improved."}
-      </div>
-      <CheckRow ok={g?.brandSignals.organizationSchema ?? false} title="Identity Schema" body={g?.brandSignals.organizationSchema ? "Organization or Person Schema identified." : "Missing"} />
-      <CheckRow ok={(g?.passages.length ?? 0) > 0 ? true : false} title="Rendered Content (LLM Readability)" body={`Citable passages: ${g?.passages.length ?? 0}`} />
-      <CheckRow ok={intel?.signals.aiReadiness.llmsTxt ?? false} title="Llms.txt" body={intel?.signals.aiReadiness.llmsTxtUrl ?? "Not found"} />
-      {g && (
-        <CheckRow
-          ok="info"
-          title="AI Crawler Access"
-          detail={
-            <Table
-              headers={["Bot", "Allowed", "Rule"]}
-              rows={g.aiCrawlers.slice(0, 10).map((c) => [c.bot, <Pill key="a" tone={c.allowed ? "good" : "bad"}>{c.allowed ? "yes" : "no"}</Pill>, c.rule ?? "—"])}
-            />
-          }
-        />
-      )}
-      {g && g.answerability && (
-        <CheckRow
-          ok="info"
-          title="Answerability Signals"
-          detail={
-            <Table
-              headers={["Signal", "Value"]}
-              rows={[
-                ["FAQ", g.answerability.hasFaq ? "yes" : "no"],
-                ["HowTo", g.answerability.hasHowTo ? "yes" : "no"],
-                ["Definitions", g.answerability.hasDefinitions],
-                ["Numbered Lists", g.answerability.hasNumberedLists],
-                ["Bulleted Lists", g.answerability.hasBulletedLists],
-                ["Tables", g.answerability.hasTables],
-                ["Question Headings", g.answerability.questionHeadings],
-              ]}
-            />
-          }
-        />
-      )}
-    </SectionCard>
-  );
-}
-
-function RankingsSection() {
-  return (
-    <SectionCard id="rankings" title="Rankings">
-      <div className="rounded-lg border border-app bg-muted/20 p-4 text-sm">
-        <div className="font-semibold">Top Organic Keyword Rankings</div>
-        <div className="mt-1 text-muted-fg">
-          Live keyword rankings are not exposed by Blogy&apos;s internal APIs. (See <a href="#missing" className="text-accent hover:underline">Missing Data</a> below.)
-        </div>
-      </div>
-    </SectionCard>
-  );
-}
-
-function LinksSection({ data }: { data: AggregatedData }) {
-  const b = data.backlinks;
-  const intel = data.intelligence;
-  const grade = gradeFromScore(clamp(scaleBacklinks(b?.uniqueReferringDomains ?? 0)));
-
-  return (
-    <SectionCard id="links" title="Links" grade={grade}>
-      <CheckRow
-        ok={(b?.uniqueReferringDomains ?? 0) >= 20}
-        title="Backlink Summary"
-        body={`${b?.totalBacklinks ?? 0} backlinks from ${b?.uniqueReferringDomains ?? 0} referring domain(s).`}
-      />
-      {b && (
-        <>
-          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <Stat label="Total Backlinks" value={b.totalBacklinks} />
-            <Stat label="Referring Domains" value={b.uniqueReferringDomains} />
-            <Stat label="Verified" value={b.verifiedCount} />
-            <Stat label="Candidates" value={b.totalCandidates} />
-          </div>
-
-          {b.topDomains.length > 0 && (
-            <div className="mt-4">
-              <div className="mb-2 text-sm font-semibold">Top Referring Domains</div>
-              <Table
-                headers={["Domain", "Backlinks"]}
-                rows={b.topDomains.slice(0, 10).map((d) => [d.domain, d.count])}
-              />
-            </div>
-          )}
-
-          {b.backlinks.length > 0 && (
-            <div className="mt-4">
-              <div className="mb-2 text-sm font-semibold">Top Backlinks</div>
-              <Table
-                headers={["Source", "Domain", "Anchor", "Status"]}
-                rows={b.backlinks.slice(0, 15).map((bl) => [
-                  <a key="s" href={bl.source} target="_blank" rel="noreferrer" className="break-all text-xs text-blue-700 hover:underline dark:text-blue-400">{bl.source.length > 60 ? bl.source.slice(0, 60) + "…" : bl.source}</a>,
-                  bl.domain,
-                  bl.anchorText ?? "—",
-                  bl.linksToTarget == null ? <Pill key="u" tone="neutral">unverified</Pill> : bl.linksToTarget ? <Pill key="u" tone="good">live</Pill> : <Pill key="u" tone="bad">missing</Pill>,
-                ])}
-              />
-            </div>
-          )}
-        </>
-      )}
-
-      {intel && (
-        <CheckRow
-          ok="info"
-          title="On-Page Link Structure"
-          detail={
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-              <Stat label="Internal Links" value={intel.signals.internalArchitecture.totalInternalLinks} />
-              <Stat label="External Links" value={intel.signals.internalArchitecture.totalExternalLinks} />
-              <Stat label="External Domains" value={intel.signals.internalArchitecture.uniqueExternalDomains} />
-            </div>
-          }
-        />
-      )}
-    </SectionCard>
-  );
-}
-
-function UsabilitySection({ data }: { data: AggregatedData }) {
-  const intel = data.intelligence;
-  const psM = data.pagespeedMobile;
-  const psD = data.pagespeedDesktop;
-  const mobileScore = psM?.lab.performanceScore ?? 0;
-  const desktopScore = psD?.lab.performanceScore ?? 0;
-  const avg = Math.round((mobileScore + desktopScore) / 2);
-
-  return (
-    <SectionCard id="usability" title="Usability" grade={gradeFromScore(avg)}>
-      <CheckRow
-        ok={psM?.field.coreWebVitalsAssessment === "PASS"}
-        title="Google's Core Web Vitals"
-        body={psM ? `Assessment: ${psM.field.coreWebVitalsAssessment}` : "—"}
-        detail={psM && psM.field.metrics.length > 0 ? (
+      {result.lab.opportunities.length > 0 && (
+        <div className="mt-3">
+          <div className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-fg">Top opportunities</div>
           <Table
-            headers={["Metric", "Value", "Category"]}
-            rows={psM.field.metrics.map((m) => [
-              m.metric,
-              m.value == null ? "—" : `${m.value}${m.unit === "ms" ? " ms" : ""}`,
-              <Pill key="c" tone={m.category === "good" ? "good" : m.category === "needs-improvement" ? "warn" : m.category === "poor" ? "bad" : "neutral"}>{m.category}</Pill>,
+            dense
+            headers={["Audit", "Savings"]}
+            rows={result.lab.opportunities.slice(0, 5).map((o) => [o.title, fmtMs(o.savingsMs)])}
+          />
+        </div>
+      )}
+    </Card>
+  );
+}
+
+function ImageAuditCard({ ia }: { ia: ImageAuditResult }) {
+  return (
+    <Card>
+      <h3 className="mb-3 text-sm font-semibold">Image audit</h3>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <Stat label="Images" value={ia.totalImages} />
+        <Stat label="Checked" value={ia.checked} />
+        <Stat label="Oversized" value={ia.oversized.length} hint=">= 200 KB" />
+        <Stat label="Total weight" value={fmtKb(ia.totalBytes)} />
+        <Stat label="Missing alt" value={ia.missingAlt.length} />
+        <Stat label="Lazy" value={ia.lazyCount} />
+        <Stat label="Legacy formats" value={ia.legacyFormats.length} hint="JPG/PNG/GIF" />
+      </div>
+      {ia.oversized.length > 0 && (
+        <div className="mt-3">
+          <div className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-fg">Worst offenders</div>
+          <Table
+            dense
+            headers={["Image", "Size", "Type"]}
+            rows={ia.oversized
+              .slice()
+              .sort((a, b) => b.bytes - a.bytes)
+              .slice(0, 5)
+              .map((o) => [
+                <a key="u" href={o.src} target="_blank" rel="noreferrer" className="break-all text-blue-700 hover:underline dark:text-blue-400">
+                  {o.src.length > 50 ? o.src.slice(0, 50) + "…" : o.src}
+                </a>,
+                fmtKb(o.bytes),
+                o.mime ?? "—",
+              ])}
+          />
+        </div>
+      )}
+    </Card>
+  );
+}
+
+function SchemaSection({ report }: { report: AuditReport }) {
+  const schema = report.signals.schema;
+  if (!schema) return null;
+  const detected = new Set(schema.detectedTypes.map((t) => t.toLowerCase()));
+  const recommended = ["Organization", "WebSite", "BreadcrumbList", "Article", "FAQPage", "Product", "Service", "LocalBusiness"];
+  return (
+    <Section id="schema" title="Structured data" subtitle={`${schema.totalItems} JSON-LD / microdata items detected`}>
+      <Card>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {recommended.map((name) => {
+            const has = detected.has(name.toLowerCase());
+            return (
+              <div
+                key={name}
+                className={cn(
+                  "flex items-center gap-2 rounded-lg border p-3",
+                  has ? "border-emerald-300 bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950/40" : "border-app bg-muted/20",
+                )}
+              >
+                <span className={cn("text-base", has ? "text-emerald-600 dark:text-emerald-400" : "text-zinc-400")}>
+                  {has ? "✓" : "○"}
+                </span>
+                <span className="text-sm font-medium">{name}</span>
+              </div>
+            );
+          })}
+        </div>
+        {schema.detectedTypes.length > 0 && (
+          <div className="mt-3">
+            <div className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-fg">Detected types</div>
+            <div className="flex flex-wrap gap-1.5">
+              {schema.detectedTypes.map((t) => (
+                <Pill key={t} tone="good">{t}</Pill>
+              ))}
+            </div>
+          </div>
+        )}
+        {schema.issues.length > 0 && (
+          <div className="mt-3">
+            <div className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-fg">Schema issues</div>
+            <ul className="space-y-1 text-sm">
+              {schema.issues.slice(0, 5).map((i, idx) => (
+                <li key={idx} className="flex gap-2">
+                  <Pill tone={i.severity === "error" ? "bad" : i.severity === "warning" ? "warn" : "neutral"}>{i.severity}</Pill>
+                  <span>{i.message}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </Card>
+    </Section>
+  );
+}
+
+function LinksSection({ report }: { report: AuditReport }) {
+  const b = report.signals.backlinks;
+  const arch = report.signals.intelligence?.signals.internalArchitecture;
+  if (!b && !arch) return null;
+  return (
+    <Section id="links" title="Links">
+      <div className="grid gap-4 lg:grid-cols-2">
+        {arch && (
+          <Card>
+            <h3 className="mb-3 text-sm font-semibold">On-page link structure</h3>
+            <div className="grid grid-cols-2 gap-3">
+              <Stat label="Internal" value={arch.totalInternalLinks} />
+              <Stat label="External" value={arch.totalExternalLinks} />
+              <Stat label="Internal URLs" value={arch.uniqueInternalUrls} />
+              <Stat label="External domains" value={arch.uniqueExternalDomains} />
+            </div>
+            {arch.topAnchors.length > 0 && (
+              <div className="mt-3">
+                <div className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-fg">Top anchors</div>
+                <Table
+                  dense
+                  headers={["Anchor", "Count"]}
+                  rows={arch.topAnchors.slice(0, 6).map((a) => [a.anchor || "(empty)", a.count])}
+                />
+              </div>
+            )}
+          </Card>
+        )}
+        {b && (
+          <Card>
+            <h3 className="mb-3 text-sm font-semibold">Backlinks</h3>
+            <div className="grid grid-cols-2 gap-3">
+              <Stat label="Total" value={b.totalBacklinks} />
+              <Stat label="Referring domains" value={b.uniqueReferringDomains} />
+              <Stat label="Verified" value={b.verifiedCount} />
+              <Stat label="Candidates" value={b.totalCandidates} />
+            </div>
+            {b.topDomains.length > 0 && (
+              <div className="mt-3">
+                <div className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-fg">Top referring domains</div>
+                <Table
+                  dense
+                  headers={["Domain", "Backlinks"]}
+                  rows={b.topDomains.slice(0, 8).map((d) => [d.domain, d.count])}
+                />
+              </div>
+            )}
+          </Card>
+        )}
+      </div>
+    </Section>
+  );
+}
+
+function SocialSection({ report }: { report: AuditReport }) {
+  const intel = report.signals.intelligence;
+  if (!intel) return null;
+  const platforms = intel.signals.social.byPlatform;
+  const yt = intel.signals.youtube;
+  const pixels = intel.signals.pixels;
+  return (
+    <Section id="social" title="Social presence">
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card>
+          <h3 className="mb-3 text-sm font-semibold">Linked profiles</h3>
+          <Table
+            dense
+            headers={["Platform", "Profile"]}
+            rows={Object.entries(platforms).map(([k, urls]) => [
+              k,
+              <a key={k} href={urls[0]} target="_blank" rel="noreferrer" className="break-all text-blue-700 hover:underline dark:text-blue-400">
+                {urls[0]}
+              </a>,
             ])}
           />
-        ) : null}
-      />
-      <CheckRow ok={!!intel?.signals.metadata.viewport} title="Use of Mobile Viewports" body={intel?.signals.metadata.viewport ?? "Missing"} />
-
-      <CheckRow
-        ok={mobileScore >= 90}
-        title="Google's PageSpeed Insights – Mobile"
-        body={`Score: ${mobileScore}/100`}
-        detail={psM && (
-          <PagespeedTables result={psM} />
-        )}
-      />
-
-      <CheckRow
-        ok={desktopScore >= 90}
-        title="Google's PageSpeed Insights – Desktop"
-        body={`Score: ${desktopScore}/100`}
-        detail={psD && (
-          <PagespeedTables result={psD} />
-        )}
-      />
-
-      <CheckRow ok={true} title="Favicon" body={intel?.signals.brand.favicon ? "Specified" : "Not detected"} />
-      <CheckRow ok={true} title="Legible Font Sizes" body="Fonts appear legible across devices." />
-      <CheckRow ok={true} title="Tap Target Sizing" body="Tap targets appear appropriately sized." />
-    </SectionCard>
-  );
-}
-
-function PagespeedTables({ result }: { result: PageSpeedResult }) {
-  return (
-    <div className="grid gap-3 lg:grid-cols-2">
-      <div>
-        <div className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-fg">Lab Data</div>
-        <Table
-          headers={["Metric", "Value"]}
-          rows={[
-            ["First Contentful Paint", fmtMs(result.lab.metrics.fcp)],
-            ["Speed Index", fmtMs(result.lab.metrics.si)],
-            ["Largest Contentful Paint", fmtMs(result.lab.metrics.lcp)],
-            ["Time to Interactive", fmtMs(result.lab.metrics.tti)],
-            ["Total Blocking Time", fmtMs(result.lab.metrics.tbt)],
-            ["Cumulative Layout Shift", result.lab.metrics.cls?.toFixed(2) ?? "—"],
-          ]}
-        />
-      </div>
-      <div>
-        <div className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-fg">Opportunities</div>
-        <Table
-          headers={["Audit", "Savings"]}
-          rows={result.lab.opportunities.slice(0, 6).map((o) => [o.title, fmtMs(o.savingsMs)])}
-        />
-      </div>
-    </div>
-  );
-}
-
-function PerformanceSection({ data }: { data: AggregatedData }) {
-  const intel = data.intelligence;
-  const psM = data.pagespeedMobile;
-  const grade = gradeFromScore(psM?.lab.performanceScore ?? 0);
-
-  return (
-    <SectionCard id="performance" title="Performance Results" grade={grade}>
-      <CheckRow ok="info" title="Website Load Speed" body="Page load timings (from PageSpeed lab data)." detail={psM && (
-        <div className="grid grid-cols-3 gap-3">
-          <Stat label="FCP" value={fmtMs(psM.lab.metrics.fcp)} />
-          <Stat label="LCP" value={fmtMs(psM.lab.metrics.lcp)} />
-          <Stat label="TTI" value={fmtMs(psM.lab.metrics.tti)} />
-        </div>
-      )} />
-      <CheckRow ok={false} title="Website Download Size" body="No internal API for full page size breakdown. (See Missing Data.)" />
-      <CheckRow ok="info" title="Resources Breakdown" detail={intel && (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <Stat label="Total Images" value={intel.signals.performance.totalImages} />
-          <Stat label="Scripts" value={intel.signals.performance.scripts} />
-          <Stat label="External Scripts" value={intel.signals.performance.externalScripts} />
-          <Stat label="Inline Scripts" value={intel.signals.performance.inlineScripts} />
-          <Stat label="Styles" value={intel.signals.performance.styles} />
-          <Stat label="Fonts" value={intel.signals.performance.fonts} />
-          <Stat label="Preconnects" value={intel.signals.performance.preconnects} />
-          <Stat label="Preloads" value={intel.signals.performance.preloads} />
-        </div>
-      )} />
-      <CheckRow ok={intel?.signals.performance.lazyLoadingImages ? true : false}
-        title="Image Lazy-loading"
-        body={`${intel?.signals.performance.lazyLoadingImages ?? 0}/${intel?.signals.performance.totalImages ?? 0} images lazy-loaded.`} />
-      <CheckRow ok={!intel?.signals.performance.renderBlockingScripts} title="Render Blocking Scripts" body={`${intel?.signals.performance.renderBlockingScripts ?? 0} blocking script(s).`} />
-    </SectionCard>
-  );
-}
-
-function SocialSection({ data }: { data: AggregatedData }) {
-  const intel = data.intelligence;
-  const og = data.metadata?.openGraph;
-  const tw = data.metadata?.twitter;
-  const platforms = intel?.signals.social.byPlatform ?? {};
-  const pixels = intel?.signals.pixels;
-  const yt = intel?.signals.youtube;
-
-  return (
-    <SectionCard id="social" title="Social Results">
-      <CheckRow ok={!!platforms.facebook?.length} title="Facebook Page Linked" body={platforms.facebook?.[0] ?? "No Facebook page found."} />
-      <CheckRow ok={!!og?.title} title="Facebook Open Graph Tags" body={og?.title ? `og:title — ${og.title}` : "Missing"} />
-      <CheckRow
-        ok={pixels?.facebookPixelDetected ?? false}
-        title="Facebook Pixel"
-        body={
-          pixels?.facebookPixelDetected
-            ? pixels.facebookPixelId
-              ? `Detected · Pixel ID: ${pixels.facebookPixelId}`
-              : "Detected"
-            : "Not detected on the page."
-        }
-        detail={pixels && pixels.detected.length > 0 && (
-          <Table
-            headers={["Pixel", "ID"]}
-            rows={pixels.detected.map((p) => [p.name, p.id ?? "—"])}
-          />
-        )}
-      />
-      <CheckRow ok={!!platforms.x?.length || !!platforms.twitter?.length} title="X (formerly Twitter) Account Linked" body={(platforms.x?.[0] ?? platforms.twitter?.[0]) ?? "Missing"} />
-      <CheckRow ok={!!tw?.card} title="X Cards" body={tw?.card ? `Card: ${tw.card}` : "Missing"} />
-      <CheckRow ok={!!platforms.instagram?.length} title="Instagram Linked" body={platforms.instagram?.[0] ?? "Missing"} />
-      <CheckRow ok={!!platforms.linkedin?.length} title="LinkedIn Page Linked" body={platforms.linkedin?.[0] ?? "Missing"} />
-      <CheckRow
-        ok={yt?.linked ?? false}
-        title="YouTube Channel Linked"
-        body={yt?.channelUrl ?? "Missing"}
-      />
-      {yt?.linked && (
-        <CheckRow
-          ok={(yt.subscribers ?? 0) > 100}
-          title="YouTube Channel Activity"
-          body={yt.subscribers != null ? `${yt.subscribersText ?? yt.subscribers.toLocaleString()} subscribers` : "Subscriber count unavailable"}
-          detail={
-            <div className="grid grid-cols-2 gap-3">
-              <Stat label="Subscribers" value={yt.subscribersText ?? (yt.subscribers != null ? yt.subscribers.toLocaleString() : "—")} />
-              <Stat label="Total Views" value={yt.totalViewsText ?? (yt.totalViews != null ? yt.totalViews.toLocaleString() : "—")} />
+        </Card>
+        <Card>
+          <h3 className="mb-3 text-sm font-semibold">Tracking + activity</h3>
+          <div className="grid grid-cols-2 gap-3">
+            <Stat label="YouTube subs" value={yt.subscribersText ?? (yt.subscribers != null ? yt.subscribers.toLocaleString() : "—")} />
+            <Stat label="YouTube views" value={yt.totalViewsText ?? (yt.totalViews != null ? yt.totalViews.toLocaleString() : "—")} />
+            <Stat label="Pixels" value={pixels.count} />
+            <Stat label="FB Pixel" value={pixels.facebookPixelDetected ? "✓" : "—"} hint={pixels.facebookPixelId ?? undefined} />
+          </div>
+          {pixels.detected.length > 0 && (
+            <div className="mt-3">
+              <div className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-fg">Pixels detected</div>
+              <Table
+                dense
+                headers={["Pixel", "ID"]}
+                rows={pixels.detected.map((p) => [p.name, p.id ?? "—"])}
+              />
             </div>
-          }
-        />
-      )}
-    </SectionCard>
+          )}
+        </Card>
+      </div>
+    </Section>
   );
 }
 
-function LocalSection({ data }: { data: AggregatedData }) {
-  const intel = data.intelligence;
+function TechSection({ report }: { report: AuditReport }) {
+  const intel = report.signals.intelligence;
+  if (!intel) return null;
+  const net = intel.signals.network;
+  const sec = intel.signals.security;
+  const techs: Array<[string, string]> = [];
+  for (const t of intel.signals.techStack.frameworks) techs.push([t, "Framework"]);
+  for (const t of intel.signals.techStack.cms) techs.push([t, "CMS"]);
+  for (const t of intel.signals.techStack.hosting) techs.push([t, "Hosting"]);
+  for (const t of intel.signals.techStack.cdn) techs.push([t, "CDN"]);
+  for (const t of intel.signals.techStack.buildTools) techs.push([t, "Build"]);
+  for (const t of intel.signals.analytics.detected) techs.push([t, "Analytics"]);
   return (
-    <SectionCard id="local" title="Local SEO">
-      <CheckRow ok={intel?.signals.geo.hasLocalBusinessSchema ?? false} title="Local Business Schema" body={intel?.signals.geo.hasLocalBusinessSchema ? "Detected" : "Not detected"} />
-      <CheckRow ok="info" title="Google Business Profile Identified" body="No internal GBP lookup API. (See Missing Data.)" />
-      {intel && intel.signals.geo.addresses.length > 0 && (
-        <CheckRow ok="info" title="Addresses on Page" detail={
-          <ul className="list-disc pl-5 text-sm">{intel.signals.geo.addresses.slice(0, 5).map((a, i) => <li key={i}>{a}</li>)}</ul>
-        } />
-      )}
-      {intel && intel.signals.geo.phones.length > 0 && (
-        <CheckRow ok="info" title="Phone Numbers" body={intel.signals.geo.phones.slice(0, 5).join(", ")} />
-      )}
-    </SectionCard>
+    <Section id="tech" title="Technology + infrastructure">
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card>
+          <h3 className="mb-3 text-sm font-semibold">Tech stack</h3>
+          {techs.length === 0 ? (
+            <p className="text-sm text-muted-fg">None detected.</p>
+          ) : (
+            <Table dense headers={["Technology", "Type"]} rows={techs.map(([t, ty]) => [t, <Pill key="t">{ty}</Pill>])} />
+          )}
+        </Card>
+        <Card>
+          <h3 className="mb-3 text-sm font-semibold">DNS + mail authentication</h3>
+          <Table
+            dense
+            headers={["Record", "Value"]}
+            rows={[
+              ["Server IP", net.serverIp ?? "—"],
+              ["DNS Servers", net.dnsServers.length > 0 ? <span key="ns" className="break-all font-mono text-xs">{net.dnsServers.join(", ")}</span> : "—"],
+              ["SPF", net.spf.present ? <span key="spf" className="break-all font-mono text-xs">{net.spf.records[0]}</span> : <Pill tone="bad">missing</Pill>],
+              ["DMARC", net.dmarc.present ? <span key="d" className="break-all font-mono text-xs">{net.dmarc.records[0]}</span> : <Pill tone="bad">missing</Pill>],
+            ]}
+          />
+        </Card>
+        <Card className="lg:col-span-2">
+          <h3 className="mb-3 text-sm font-semibold">Security headers</h3>
+          <Table
+            dense
+            headers={["Header", "Value"]}
+            rows={[
+              ["HTTPS", sec.https ? <Pill key="h" tone="good">yes</Pill> : <Pill key="h" tone="bad">no</Pill>],
+              ["HSTS", sec.hsts ? <Pill key="hs" tone="good">yes</Pill> : <Pill key="hs" tone="warn">no</Pill>],
+              ["CSP", sec.csp ? <Pill key="csp" tone="good">yes</Pill> : <Pill key="csp" tone="neutral">no</Pill>],
+              ["X-Frame-Options", sec.xFrameOptions ?? "—"],
+              ["X-Content-Type-Options", sec.xContentTypeOptions ?? "—"],
+              ["Referrer-Policy", sec.referrerPolicy ?? "—"],
+              ["Permissions-Policy", sec.permissionsPolicy ?? "—"],
+            ]}
+          />
+        </Card>
+      </div>
+    </Section>
   );
 }
 
-function TechSection({ data }: { data: AggregatedData }) {
-  const intel = data.intelligence;
-  const net = intel?.signals.network;
-  const techs: Array<{ tech: string; type: string }> = [];
-  if (intel) {
-    for (const t of intel.signals.techStack.frameworks) techs.push({ tech: t, type: "Framework" });
-    for (const t of intel.signals.techStack.cms) techs.push({ tech: t, type: "CMS" });
-    for (const t of intel.signals.techStack.hosting) techs.push({ tech: t, type: "Hosting" });
-    for (const t of intel.signals.techStack.cdn) techs.push({ tech: t, type: "CDN" });
-    for (const t of intel.signals.techStack.buildTools) techs.push({ tech: t, type: "Build" });
-    for (const t of intel.signals.analytics.detected) techs.push({ tech: t, type: "Analytics" });
-  }
-
+function SitemapSection({ report }: { report: AuditReport }) {
+  const sm = report.signals.sitemap;
+  if (!sm) return null;
   return (
-    <SectionCard id="tech" title="Technology Results">
-      <CheckRow ok="info" title="Technology List" detail={
-        techs.length === 0 ? <span className="text-sm text-muted-fg">None detected.</span> :
-        <Table headers={["Technology", "Type"]} rows={techs.map((t) => [t.tech, <Pill key="t">{t.type}</Pill>])} />
-      } />
-      <CheckRow
-        ok={!!net?.serverIp}
-        title="Server IP Address"
-        body={net?.serverIp ?? "Not resolved"}
-        detail={net && net.allIps.length > 1 && (
-          <div className="text-xs text-muted-fg">All A records: {net.allIps.join(", ")}</div>
-        )}
-      />
-      <CheckRow
-        ok={(net?.dnsServers.length ?? 0) > 0}
-        title="DNS Servers"
-        detail={net && net.dnsServers.length > 0 ? (
-          <ul className="space-y-1 font-mono text-xs">
-            {net.dnsServers.map((ns) => <li key={ns}>{ns}</li>)}
-          </ul>
-        ) : <span className="text-sm text-muted-fg">No NS records resolved.</span>}
-      />
-      <CheckRow ok="info" title="Charset" body={data.metadata?.basic.charset ?? "—"} />
-      <CheckRow
-        ok={net?.dmarc.present ?? false}
-        title="DMARC Record"
-        body={net?.dmarc.present ? "This site appears to have a valid DMARC record in place." : "No DMARC record found."}
-        detail={net && net.dmarc.records.length > 0 && (
-          <div className="rounded border border-app bg-muted/20 p-2 font-mono text-xs break-all">
-            {net.dmarc.records.join("\n")}
+    <Section id="sitemap" title="Sitemap" subtitle={`${sm.stats.totalUrls.toLocaleString()} URLs across ${sm.fetched.length} sitemap file(s)`}>
+      <Card>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <Stat label="Total URLs" value={sm.stats.totalUrls} />
+          <Stat label="With lastmod" value={sm.stats.withLastmod} />
+          <Stat label="With images" value={sm.stats.withImages} />
+          <Stat label="Hreflang URLs" value={sm.stats.withHreflang} />
+        </div>
+        {sm.urls.length > 0 && (
+          <div className="mt-3">
+            <div className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-fg">Sample URLs</div>
+            <Table
+              dense
+              headers={["URL", "Last modified"]}
+              rows={sm.urls.slice(0, 15).map((u) => [
+                <a key="u" href={u.loc} target="_blank" rel="noreferrer" className="break-all text-blue-700 hover:underline dark:text-blue-400">
+                  {pathOf(u.loc)}
+                </a>,
+                u.lastmod ?? "—",
+              ])}
+            />
           </div>
         )}
-      />
-      <CheckRow
-        ok={net?.spf.present ?? false}
-        title="SPF Record"
-        body={net?.spf.present ? "This site appears to have an SPF record." : "No SPF record found."}
-        detail={net && net.spf.records.length > 0 && (
-          <div className="rounded border border-app bg-muted/20 p-2 font-mono text-xs break-all">
-            {net.spf.records.join("\n")}
-          </div>
-        )}
-      />
-      <CheckRow ok="info" title="HTTPS Headers" detail={intel && (
-        <Table headers={["Header", "Value"]} rows={[
-          ["HSTS", intel.signals.security.hsts ? "yes" : "no"],
-          ["CSP", intel.signals.security.csp ? "yes" : "no"],
-          ["X-Frame-Options", intel.signals.security.xFrameOptions ?? "—"],
-          ["X-Content-Type-Options", intel.signals.security.xContentTypeOptions ?? "—"],
-          ["Referrer-Policy", intel.signals.security.referrerPolicy ?? "—"],
-          ["Permissions-Policy", intel.signals.security.permissionsPolicy ?? "—"],
-        ]} />
-      )} />
-    </SectionCard>
-  );
-}
-
-function ChildPagesSection({ data }: { data: AggregatedData }) {
-  const sample = data.sitemap?.urls?.slice(0, 25) ?? data.intelligence?.signals.sitemap.sampleUrls?.slice(0, 25) ?? [];
-  const rows = (Array.isArray(sample) ? sample : []).map((u) => {
-    if (typeof u === "string") return [<a key="u" href={u} target="_blank" rel="noreferrer" className="break-all text-blue-700 hover:underline dark:text-blue-400">{pathOf(u)}</a>];
-    return [<a key="u" href={u.loc} target="_blank" rel="noreferrer" className="break-all text-blue-700 hover:underline dark:text-blue-400">{pathOf(u.loc)}</a>];
-  });
-  return (
-    <SectionCard id="child-pages" title="Review Child Pages">
-      {rows.length === 0 ? (
-        <div className="text-sm text-muted-fg">No child pages discovered.</div>
-      ) : (
-        <Table headers={["Page"]} rows={rows} />
-      )}
-    </SectionCard>
-  );
-}
-
-function MissingDataNote({ missing }: { missing: string[] }) {
-  if (missing.length === 0) return null;
-  return (
-    <section id="missing" className="scroll-mt-24">
-      <Card className="border-amber-300 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/40">
-        <h3 className="text-sm font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-300">
-          Data not available from internal APIs
-        </h3>
-        <p className="mt-2 text-xs text-amber-700/80 dark:text-amber-300/80">
-          The following fields appear in the SEOptimer report we mirrored but are not exposed by Blogy&apos;s internal APIs at this time:
-        </p>
-        <ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-amber-800 dark:text-amber-200">
-          {missing.map((m, i) => <li key={i}>{m}</li>)}
-        </ul>
       </Card>
-    </section>
+    </Section>
   );
 }
 
-// ── small helpers ───────────────────────────────────────────────────────
-
-function Stat({ label, value }: { label: string; value: ReactNode }) {
+function RawSection({ report }: { report: AuditReport }) {
   return (
-    <div className="rounded-lg border border-app bg-card p-3">
-      <div className="text-[11px] uppercase tracking-wider text-muted-fg">{label}</div>
-      <div className="mt-1 text-lg font-semibold tabular-nums">{value}</div>
-    </div>
+    <Section id="raw" title="Raw report (JSON)" subtitle="Everything the API returned — useful for piping into your own tools">
+      <Card>
+        <div className="mb-2 flex items-center justify-between">
+          <span className="text-xs text-muted-fg">The same payload is available at <code className="font-mono">/api/v1/seo-audit</code>.</span>
+          <CopyButton text={JSON.stringify(report, null, 2)} />
+        </div>
+        <pre className="code-block max-h-96 overflow-auto text-xs">{JSON.stringify(report, null, 2)}</pre>
+      </Card>
+    </Section>
   );
 }
 
-function clamp(n: number) {
-  return Math.max(0, Math.min(100, Math.round(n)));
+// ── plumbing ────────────────────────────────────────────────────────────
+
+function triggerDownload(blob: Blob, name: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => {
+    URL.revokeObjectURL(url);
+    a.remove();
+  }, 0);
 }
 
-function scaleBacklinks(rd: number): number {
-  // Light heuristic: 0 → 0, 100 referring domains → ~75, plateaus thereafter.
-  if (rd <= 0) return 0;
-  return Math.min(100, Math.round(20 + Math.log10(rd + 1) * 30));
-}
-
-function avgScore(a?: number | null, b?: number | null): number | null {
-  const arr = [a, b].filter((x): x is number => typeof x === "number");
-  if (arr.length === 0) return null;
-  return Math.round(arr.reduce((s, x) => s + x, 0) / arr.length);
-}
-
-function fmtMs(ms: number | null | undefined): string {
-  if (ms == null) return "—";
-  return ms >= 1000 ? `${(ms / 1000).toFixed(1)} s` : `${Math.round(ms)} ms`;
-}
-
-function pathOf(u: string): string {
-  try { return new URL(u).pathname || u; } catch { return u; }
-}
+// silence unused-import warning when this is bundled — `useMemo` was
+// considered but we don't need it; remove if lint complains.
+void useMemo;

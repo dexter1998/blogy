@@ -94,3 +94,31 @@ code {
 .tabular-nums {
   font-variant-numeric: tabular-nums;
 }
+
+/* Print styles for SEO Audit "Print / PDF" export.
+ * Hide nav, form, footer, sticky tab-bar; expand collapsed sections;
+ * remove background gradients so it looks clean on white paper.
+ */
+@media print {
+  nav,
+  footer,
+  form,
+  .no-print { display: none !important; }
+
+  body { background: white !important; color: black !important; }
+
+  /* Disable sticky positioning in print — sticky elements duplicate on every page. */
+  .sticky { position: static !important; }
+
+  /* Break sections cleanly across pages. */
+  section { break-inside: avoid; page-break-inside: avoid; }
+
+  /* Shrink the gauge ring strokes to print better on B&W. */
+  svg circle { stroke-opacity: 1; }
+
+  /* Slightly tighter typography for print. */
+  body { font-size: 11pt; }
+  h1 { font-size: 18pt; }
+  h2 { font-size: 14pt; }
+  h3 { font-size: 12pt; }
+}

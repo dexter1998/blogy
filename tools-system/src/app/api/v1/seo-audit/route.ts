@@ -5,7 +5,9 @@ import { seoAuditScraper } from "@/scrapers/seo-audit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
+// 2 pagespeed calls + website-intelligence crawl + image HEAD audit can
+// run 30–60s on a cold cache; give Vercel headroom.
+export const maxDuration = 120;
 
 const singleSchema = z.object({
   url: urlSchema,
