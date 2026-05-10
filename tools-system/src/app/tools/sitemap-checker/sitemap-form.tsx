@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Badge, Button, Card, CopyButton, Stat } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import type { SitemapUrl } from "@/scrapers/sitemap/types";
@@ -58,8 +58,23 @@ export function SitemapForm() {
   const [filterSource, setFilterSource] = useState<string>("");
 
   const abortRef = useRef<AbortController | null>(null);
+  const resultsRef = useRef<HTMLDivElement | null>(null);
+  const hasScrolledRef = useRef(false);
+
+  // Auto-scroll to results once we've moved past discovery and have something to show.
+  useEffect(() => {
+    if (
+      !hasScrolledRef.current &&
+      (phase === "extracting" || phase === "done") &&
+      resultsRef.current
+    ) {
+      hasScrolledRef.current = true;
+      resultsRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [phase]);
 
   function reset() {
+    hasScrolledRef.current = false;
     setError(null);
     setDiscover(null);
     setSubs([]);
@@ -338,6 +353,60 @@ export function SitemapForm() {
           )}
         </form>
       </Card>
+
+      {/* Anchor for auto-scroll. Shown the moment the crawl starts. */}
+      {phase !== "idle" && (
+        <div ref={resultsRef} className="space-y-6 scroll-mt-20">
+          {/* Progress bar — visible from the very first click */}
+          <Card>
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-sm">
+              <span className="font-medium">
+                {phase === "discovering"
+                  ? "Discovering sitemaps from robots.txt…"
+                  : phase === "extracting"
+                    ? `Processing sub-sitemap ${doneOk + subs.filter((s) => s.status === "running").length} of ${totalSubs}`
+                    : phase === "done"
+                      ? totalSubs > 0
+                        ? `Done — extracted ${urls.length.toLocaleString()} URLs from ${doneOk} sub-sitemap${doneOk === 1 ? "" : "s"}`
+                        : "Done"
+                      : ""}
+              </span>
+              <span className="tabular-nums text-muted-fg">
+                {phase === "extracting" || phase === "done"
+                  ? totalSubs
+                    ? `${Math.round((doneOk / totalSubs) * 100)}%`
+                    : ""
+                  : ""}
+              </span>
+            </div>
+            <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+              <div
+                className={cn(
+                  "h-full transition-all duration-300 ease-out",
+                  phase === "discovering"
+                    ? "w-1/4 animate-pulse bg-amber-400"
+                    : phase === "done"
+                      ? "bg-emerald-500"
+                      : "bg-accent",
+                )}
+                style={{
+                  width:
+                    phase === "discovering"
+                      ? "25%"
+                      : phase === "extracting" || phase === "done"
+                        ? totalSubs
+                          ? `${Math.max(5, Math.round((doneOk / totalSubs) * 100))}%`
+                          : "100%"
+                        : "0%",
+                }}
+              />
+            </div>
+            {phase === "extracting" && urls.length > 0 && (
+              <p className="mt-2 text-xs text-muted-fg">
+                {urls.length.toLocaleString()} URLs extracted so far · running 5 sub-sitemaps in parallel
+              </p>
+            )}
+          </Card>
 
       {/* Discovery output: Box A — robots.txt sitemaps */}
       {discover && (
@@ -689,6 +758,8 @@ export function SitemapForm() {
             </table>
           </div>
         </Card>
+      )}
+        </div>
       )}
     </div>
   );
