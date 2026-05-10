@@ -23,10 +23,12 @@ export default function Page() {
       tool={tool}
       badge="Technical · Sitemaps"
       howItWorks={[
-        "Discovers sitemaps via robots.txt and common locations",
-        "Expands <sitemapindex> recursively (capped)",
-        "Computes freshness, depth, and changefreq stats",
-        "Flags missing lastmod, multi-host, or stale entries",
+        "Accepts domain, sitemap URL, or any nested sitemap",
+        "Discovers via robots.txt + common paths (sitemap.xml, sitemap_index.xml, wp-sitemap.xml, …)",
+        "Recursively expands sitemap indexes with concurrent fetching",
+        "Decompresses gzipped (.xml.gz) sitemaps automatically",
+        "Parses image / video / news / hreflang namespaces",
+        "Exports filtered or full URL list as CSV / TXT / JSON",
       ]}
       exampleCurl={exampleCurl}
     >

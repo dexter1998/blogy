@@ -1,6 +1,13 @@
 import { env } from "@/lib/env";
 import type { Scraper, ScrapeContext } from "@/scrapers/base/scraper";
-import { discoverSitemaps, fetchSitemap, fetchSitemapTree } from "@/scrapers/_shared/sitemap";
+import {
+  classifySitemapInput,
+  discoverSitemaps,
+  fetchSitemap,
+  fetchSitemapTree,
+  type SitemapEntry,
+  type SitemapTree,
+} from "@/scrapers/_shared/sitemap";
 import { scoreSitemap } from "@/scoring/sitemap";
 import type { SitemapInput, SitemapResult } from "./types";
 
@@ -38,19 +45,17 @@ export const sitemapScraper: Scraper<SitemapInput, SitemapResult> = {
   },
 
   async execute(input, _ctx: ScrapeContext): Promise<SitemapResult> {
-    const isXml = /\.(xml|gz)$|sitemap/i.test(input.url);
-    const u = new URL(input.url);
-    const origin = `${u.protocol}//${u.host}`;
+    const { direct, origin } = classifySitemapInput(input.url);
 
     let discovered: string[];
-    if (isXml) {
+    if (direct) {
       discovered = [input.url];
     } else {
       discovered = await discoverSitemaps(origin);
     }
 
-    // Fetch each discovered sitemap as a tree (handles index → children)
-    const trees = await Promise.all(discovered.map((d) => fetchSitemapTree(d)));
+    // Run trees in parallel — the tree itself uses bounded concurrency.
+    const trees: SitemapTree[] = await Promise.all(discovered.map((d) => fetchSitemapTree(d)));
 
     const fetched = trees.flatMap((t) =>
       t.fetched.map((f) => ({
@@ -58,12 +63,25 @@ export const sitemapScraper: Scraper<SitemapInput, SitemapResult> = {
         type: f.type,
         ok: f.ok,
         rawUrlCount: f.rawUrlCount,
-        childSitemaps: f.childSitemaps,
+        childSitemaps: f.childSitemaps.map((c) => c.loc),
+        status: f.status ?? null,
+        bytes: f.bytes,
+        durationMs: f.durationMs,
         error: f.error,
       })),
     );
     const truncated = trees.some((t) => t.truncated);
-    const allEntries = trees.flatMap((t) => t.allEntries);
+
+    // Dedup entries by loc (some sitemaps double-list URLs).
+    const seenLoc = new Set<string>();
+    const allEntries: SitemapEntry[] = [];
+    for (const t of trees) {
+      for (const e of t.allEntries) {
+        if (seenLoc.has(e.loc)) continue;
+        seenLoc.add(e.loc);
+        allEntries.push(e);
+      }
+    }
 
     // ── Stats ─────────────────────────────────────────
     const hosts = new Set<string>();
@@ -72,6 +90,10 @@ export const sitemapScraper: Scraper<SitemapInput, SitemapResult> = {
     let withLastmod = 0;
     let withChangefreq = 0;
     let withPriority = 0;
+    let withImages = 0;
+    let withVideos = 0;
+    let withNews = 0;
+    let withHreflang = 0;
     const cfMap: Record<string, number> = {};
     const ages: number[] = [];
 
@@ -97,6 +119,10 @@ export const sitemapScraper: Scraper<SitemapInput, SitemapResult> = {
         cfMap[e.changefreq] = (cfMap[e.changefreq] ?? 0) + 1;
       }
       if (e.priority !== null) withPriority += 1;
+      if (e.images?.length) withImages += 1;
+      if (e.videos?.length) withVideos += 1;
+      if (e.news) withNews += 1;
+      if (e.alternates?.length) withHreflang += 1;
     }
 
     const topPaths = Array.from(segCounts.entries())
@@ -126,6 +152,10 @@ export const sitemapScraper: Scraper<SitemapInput, SitemapResult> = {
         },
         changefreqBreakdown: cfMap,
         topPaths,
+        withImages,
+        withVideos,
+        withNews,
+        withHreflang,
       },
       issues: [],
       scores: { overall: 0, coverage: 0, freshness: 0, structure: 0 },
@@ -133,6 +163,17 @@ export const sitemapScraper: Scraper<SitemapInput, SitemapResult> = {
         loc: e.loc,
         lastmod: e.lastmod,
         priority: e.priority,
+      })),
+      urls: allEntries.map((e) => ({
+        loc: e.loc,
+        lastmod: e.lastmod,
+        priority: e.priority,
+        changefreq: e.changefreq,
+        source: e.source,
+        imageCount: e.images?.length,
+        videoCount: e.videos?.length,
+        hasNews: e.news ? true : undefined,
+        hreflangCount: e.alternates?.length,
       })),
     };
 

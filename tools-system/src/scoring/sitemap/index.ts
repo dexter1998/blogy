@@ -51,13 +51,16 @@ export function scoreSitemap(r: SitemapResult): {
 
   // ── Structure ──
   let structure = 0;
-  if (r.discovered.length > 0) structure += 20;
+  if (r.discovered.length > 0) structure += 15;
   if (r.fetched.some((f) => f.type === "sitemapindex")) structure += 15;
-  if (r.stats.uniqueHosts === 1 || r.stats.totalUrls === 0) structure += 15;
-  if (r.stats.avgPathDepth > 0 && r.stats.avgPathDepth <= 4) structure += 25;
+  if (r.stats.uniqueHosts === 1 || r.stats.totalUrls === 0) structure += 10;
+  if (r.stats.avgPathDepth > 0 && r.stats.avgPathDepth <= 4) structure += 20;
   else if (r.stats.avgPathDepth > 4) structure += 10;
-  if (r.stats.topPaths.length > 0) structure += 15;
+  if (r.stats.topPaths.length > 0) structure += 10;
   if (r.stats.withPriority / Math.max(1, r.stats.totalUrls) > 0.5) structure += 10;
+  if (r.stats.withImages > 0) structure += 5;
+  if (r.stats.withHreflang > 0) structure += 10;
+  if (r.stats.withNews > 0 || r.stats.withVideos > 0) structure += 5;
 
   const scores = {
     coverage: clamp(coverage),
