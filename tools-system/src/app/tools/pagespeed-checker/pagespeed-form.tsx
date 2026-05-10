@@ -40,7 +40,7 @@ function normaliseUrl(input: string): string {
 // ────────────────────────────────────────────────────────────────────────────
 
 export function PageSpeedTool() {
-  const [url, setUrl] = useState("blogy.in");
+  const [url, setUrl] = useState("");
   // The device that controls which set of results + which mockup is shown.
   const [device, setDevice] = useState<Device>("mobile");
   const [loading, setLoading] = useState(false);
@@ -80,7 +80,8 @@ export function PageSpeedTool() {
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const target = normaliseUrl(url);
+    // Fall back to the placeholder host so an empty submit still demos the tool.
+    const target = normaliseUrl(url || "blogy.in");
     if (!target) return;
     setError(null);
     setResults({ mobile: null, desktop: null });
@@ -117,6 +118,15 @@ export function PageSpeedTool() {
         onSubmit={onSubmit}
       />
 
+      {loading && !activeResult && (
+        <div
+          ref={resultsRef}
+          className="container w-full min-w-0 overflow-x-hidden py-16"
+        >
+          <AuditLoader />
+        </div>
+      )}
+
       {activeResult && (
         <div
           ref={resultsRef}
@@ -125,6 +135,31 @@ export function PageSpeedTool() {
           <Dashboard result={activeResult} />
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Audit loader (shown while waiting 20-30s for PSI) ───────────────────────
+
+function AuditLoader() {
+  return (
+    <div className="flex flex-col items-center justify-center gap-5 rounded-2xl border border-app bg-card px-6 py-14 text-center shadow-sm">
+      <div
+        className="h-14 w-14 rounded-full border-[3px] border-zinc-200 border-t-accent"
+        style={{ animation: "psi-spin 0.9s linear infinite" }}
+      />
+      <div>
+        <div className="text-base font-semibold">Auditing your site…</div>
+        <p className="mt-1 text-sm text-muted-fg">
+          Running real Google PageSpeed Insights — mobile + desktop in parallel.
+          Average run ≈ 20–30 seconds.
+        </p>
+      </div>
+      <style jsx>{`
+        @keyframes psi-spin {
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   );
 }
@@ -187,13 +222,13 @@ function Hero({
                   <input
                     value={url}
                     onChange={(e) => setUrl(e.target.value)}
-                    placeholder="Enter website URL — e.g. blogy.in"
+                    placeholder="blogy.in"
                     className="h-11 w-full bg-transparent text-sm focus:outline-none"
                     inputMode="url"
                     autoComplete="url"
                   />
                 </div>
-                <Button type="submit" size="lg" disabled={loading || !url.trim()}>
+                <Button type="submit" size="lg" disabled={loading}>
                   {loading ? "Auditing…" : "Run audit"}
                 </Button>
               </div>
@@ -235,14 +270,18 @@ function Hero({
 //
 // 1. thum.io (no-key proxy, fast, renders headless Chrome immediately)
 // 2. mshots (WordPress.com, free, but can be slow on first hit)
-// 3. urlbox public demo (last resort)
-// 4. favicon + hostname placeholder
-function shotUrls(url: string, width: number): string[] {
+// 3. favicon + hostname placeholder
+//
+// We pass a viewport hint so each provider captures the device-shaped top
+// fold only (hero section), not the entire page rendered tiny.
+function shotUrls(url: string, viewport: { w: number; h: number }): string[] {
   if (!url) return [];
   const clean = url.replace(/^https?:\/\//i, "").replace(/\/$/, "");
   return [
-    `https://image.thum.io/get/width/${width}/crop/${Math.round(width * 1.6)}/noanimate/wait/3/https://${clean}`,
-    `https://s.wordpress.com/mshots/v1/${encodeURIComponent("https://" + clean)}?w=${width}`,
+    // thum.io: viewport/<w>x<h>/ sets the headless-Chrome viewport, crop/<n>
+    // caps the captured height so we only get the top fold.
+    `https://image.thum.io/get/viewport/${viewport.w}x${viewport.h}/crop/${viewport.h}/noanimate/wait/3/https://${clean}`,
+    `https://s.wordpress.com/mshots/v1/${encodeURIComponent("https://" + clean)}?w=${viewport.w}&h=${viewport.h}`,
   ];
 }
 
@@ -264,14 +303,14 @@ function hostnameOf(url: string): string {
  */
 function SiteShot({
   url,
-  width,
+  viewport,
   liveScreenshot,
 }: {
   url: string;
-  width: number;
+  viewport: { w: number; h: number };
   liveScreenshot?: string;
 }) {
-  const sources = useMemo(() => shotUrls(url, width), [url, width]);
+  const sources = useMemo(() => shotUrls(url, viewport), [url, viewport]);
   const [idx, setIdx] = useState(0);
   const [loaded, setLoaded] = useState(false);
 
@@ -406,21 +445,20 @@ function ScanningOverlay({ active }: { active: boolean }) {
   return (
     <div className="pointer-events-none absolute inset-0 overflow-hidden">
       {/* Bright horizontal scanning line — sweeps top → bottom → top.
-          alternate direction gives the back-and-forth effect without a
-          jarring jump back to the top. */}
-      <div
-        className="absolute inset-x-0 h-[3px] bg-gradient-to-r from-transparent via-accent to-transparent shadow-[0_0_24px_6px_rgb(var(--accent)/0.55)]"
-        style={{
-          top: 0,
-          animation: "psi-scan-sweep 2.6s linear infinite alternate",
-        }}
-      />
+          We animate `top` as a percentage of the parent so the line
+          actually traverses the full container height (translateY % is
+          relative to the element's own 3px height, which barely moves). */}
+      <div className="psi-scan-line absolute inset-x-0 h-[3px] bg-gradient-to-r from-transparent via-accent to-transparent shadow-[0_0_24px_6px_rgb(var(--accent)/0.55)]" />
       {/* Subtle scanline pattern + tint, matches the seobility "scanning" feel. */}
       <div className="absolute inset-0 bg-[linear-gradient(rgba(108,70,255,0.06)_50%,transparent_50%)] bg-[length:100%_4px] mix-blend-overlay" />
-      <style jsx global>{`
+      <style jsx>{`
+        .psi-scan-line {
+          top: 0;
+          animation: psi-scan-sweep 2.6s ease-in-out infinite alternate;
+        }
         @keyframes psi-scan-sweep {
-          0%   { transform: translateY(0%); }
-          100% { transform: translateY(calc(var(--scan-height, 100%) - 3px)); }
+          0%   { top: 0%; }
+          100% { top: calc(100% - 3px); }
         }
       `}</style>
     </div>
@@ -456,7 +494,8 @@ function PhoneMockup({
         {/* Dynamic island / notch */}
         <div className="absolute left-1/2 top-2 z-10 h-3.5 w-14 -translate-x-1/2 rounded-full bg-zinc-900" />
         <div className="relative h-full w-full overflow-hidden rounded-[1.45rem] bg-white">
-          <SiteShot url={url} width={400} liveScreenshot={liveScreenshot} />
+          {/* Mobile viewport — captures only the top fold (≈ hero section) */}
+          <SiteShot url={url} viewport={{ w: 412, h: 870 }} liveScreenshot={liveScreenshot} />
           <ScanningOverlay active={scanning} />
         </div>
       </div>
@@ -480,7 +519,8 @@ function LaptopMockup({
         {/* Webcam dot */}
         <div className="absolute left-1/2 top-[3px] z-10 h-1 w-1 -translate-x-1/2 rounded-full bg-zinc-500" />
         <div className="relative h-full w-full overflow-hidden rounded-[0.35rem] bg-white">
-          <SiteShot url={url} width={1024} liveScreenshot={liveScreenshot} />
+          {/* Desktop viewport — 16:10 hero fold, no full-page scroll */}
+          <SiteShot url={url} viewport={{ w: 1280, h: 800 }} liveScreenshot={liveScreenshot} />
           <ScanningOverlay active={scanning} />
         </div>
       </div>
