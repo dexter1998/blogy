@@ -7,9 +7,9 @@ import { env } from "@/lib/env";
 const tool = getTool("da-pa-checker")!;
 
 export const metadata: Metadata = {
-  title: "DA PA Checker — Free Domain & Page Authority Estimator",
+  title: "Authority Checker — Domain & Page Authority from Public Signals",
   description:
-    "Check Domain Authority, Page Authority, Spam Score and Domain Age for any URL. Bulk supported. Transparent scoring from public signals — no fake Moz numbers.",
+    "Check Authority Score, Page Strength, Domain Strength, URL Strength, Spam Score and Stability Score for any URL. Bulk supported. Transparent scoring derived from public signals only — no proprietary metrics emulated.",
   alternates: { canonical: "/tools/da-pa-checker" },
 };
 

@@ -1,6 +1,12 @@
 /**
  * Public input/output contracts for the DA/PA scraper.
  * The API route, tool UI, and docs page all import from here.
+ *
+ * Field names use Blogy-native vocabulary. We retain a small block of
+ * legacy short codes (da/pa/dr/ur/ss/st) on the API response object as a
+ * temporary compatibility surface — these are deprecated and will be
+ * removed in a future version. UI consumers should rely only on the
+ * Blogy-native fields (authorityScore / pageStrength / ...).
  */
 
 export type DaPaInput = {
@@ -22,15 +28,20 @@ export type DomainSignals = {
   dnsHealthy: boolean;
   hasMx: boolean;
   hasSpf: boolean;
+  hasDmarc: boolean;
+  /** Which provider supplied each lookup, useful for debugging. */
+  provenance: { whois: string | null; dns: string | null };
 };
 
 export type IndexationSignals = {
-  /** Estimate from `site:` query — null when scrape fails. */
+  /** From sitemap URL count. Null when no sitemap could be parsed. */
   indexedPages: number | null;
   hasSitemap: boolean;
   hasRobotsTxt: boolean;
   sitemapUrlCount: number | null;
   robotsAllowsAll: boolean;
+  /** Approximate organic-search row count from a public SERP query. */
+  searchResultsObserved: number | null;
 };
 
 export type ContentSignals = {
@@ -54,6 +65,9 @@ export type TrustSignals = {
   hasSchemaOrg: boolean;
   hasOpenGraph: boolean;
   socialProfiles: string[];
+  /** How many distinct schema.org types were found on the page. */
+  schemaTypes: number;
+  hasOrganizationSchema: boolean;
 };
 
 export type SpamSignals = {
@@ -64,12 +78,18 @@ export type SpamSignals = {
 };
 
 export type AuthoritySignals = {
-  /** Coarse referring-domain estimate from outbound link diversity + presence. */
-  referringDomainsEstimate: number | null;
-  /** Coarse backlink estimate; intentionally a band, not a precise number. */
-  backlinkEstimate: number | null;
-  /** Branded presence proxy: does brand name appear in title, meta, OG. */
+  /** OpenPageRank value normalized to 0..1 — null when API key not configured. */
+  pageRank01: number | null;
+  /** Distinct referring captures observed in Common Crawl. */
+  refDomainsObserved: number | null;
+  /** Total link-record samples across consulted CC indexes. */
+  linkSamplesObserved: number | null;
+  /** Distinct external hosts the page links out to (weak proxy). */
+  outboundHostDiversity: number | null;
+  /** 0..1 — does brand name appear consistently in title + og:site_name. */
   brandConsistency: number;
+  /** Which providers contributed to this reading. */
+  providers: string[];
 };
 
 export type ScoreBreakdown = {
@@ -86,17 +106,44 @@ export type DaPaResult = {
   domain: string;
   fetchedAt: string;
   scores: {
-    da: number;
-    pa: number;
-    spam: number;
+    /** Whole-domain authority composite (0–100). */
+    authorityScore: number;
+    /** Single-page authority composite (0–100). */
+    pageStrength: number;
+    /** Backlink-weighted domain reading (0–100). */
+    domainStrength: number;
+    /** Backlink-weighted page reading (0–100). */
+    urlStrength: number;
+    /** Spam pattern score (0–100, higher = spammier). */
+    spamScore: number;
+    /** Trust + cleanliness + maturity composite (0–100). */
+    stabilityScore: number;
+    /** Composite trust signal (0–100). */
     trust: number;
+    /** Share of sub-signals that contributed (0–100%). */
     confidence: number;
+
+    /**
+     * @deprecated Use the Blogy-native fields above. Legacy short codes are
+     * retained for one-version backward compatibility and will be removed.
+     */
+    da: number;
+    /** @deprecated use pageStrength */
+    pa: number;
+    /** @deprecated use domainStrength */
+    dr: number;
+    /** @deprecated use urlStrength */
+    ur: number;
+    /** @deprecated use spamScore */
+    ss: number;
+    /** @deprecated use stabilityScore */
+    st: number;
   };
   metrics: {
     domainAgeYears: number | null;
     indexedPages: number | null;
-    referringDomainsEstimate: number | null;
-    backlinkEstimate: number | null;
+    pageRank01: number | null;
+    referringCaptures: number | null;
     https: boolean;
   };
   signals: {

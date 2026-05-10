@@ -1,5 +1,4 @@
-import dns from "node:dns/promises";
-import whois from "whois-json";
+import { lookupWhois, resolveDns } from "@/providers";
 import type { DomainSignals } from "@/scrapers/da-pa/types";
 
 const KNOWN_TLD_QUALITY: Record<string, number> = {
@@ -21,81 +20,37 @@ export function tldQuality(tld: string): number {
   return KNOWN_TLD_QUALITY[t] ?? 0.7;
 }
 
-function parseWhoisDate(value: unknown): Date | null {
-  if (!value) return null;
-  const s = Array.isArray(value) ? String(value[0]) : String(value);
-  const d = new Date(s);
-  if (Number.isNaN(d.getTime())) return null;
-  if (d.getFullYear() < 1985 || d > new Date()) return null;
-  return d;
-}
-
-export async function collectDomainSignals(
-  url: string,
-): Promise<DomainSignals> {
+/**
+ * Combine the WHOIS provider chain (RDAP → port-43 whois) with the DNS
+ * provider chain (Google DoH → Cloudflare DoH → node:dns). All real-time
+ * lookups, all cached at the provider layer.
+ */
+export async function collectDomainSignals(url: string): Promise<DomainSignals> {
   const u = new URL(url);
   const domain = u.hostname.replace(/^www\./, "");
   const tld = domain.split(".").pop() ?? "";
   const https = u.protocol === "https:";
 
-  const [whoisResult, dnsResult] = await Promise.allSettled([
-    whois(domain, { follow: 2, timeout: 6000 }) as Promise<Record<string, unknown>>,
-    Promise.allSettled([
-      dns.resolve4(domain).catch(() => []),
-      dns.resolveMx(domain).catch(() => []),
-      dns.resolveTxt(domain).catch(() => [] as string[][]),
-    ]),
-  ]);
+  const [whoisR, dnsR] = await Promise.all([lookupWhois(domain), resolveDns(domain)]);
 
-  let createdAt: Date | null = null;
-  let registrar: string | null = null;
-  if (whoisResult.status === "fulfilled" && whoisResult.value) {
-    const w = whoisResult.value;
-    createdAt =
-      parseWhoisDate(w.creationDate) ||
-      parseWhoisDate(w.created) ||
-      parseWhoisDate(w.createdOn) ||
-      parseWhoisDate(w.registered) ||
-      parseWhoisDate((w as Record<string, unknown>)["Creation Date"]);
-    const r = w.registrar ?? (w as Record<string, unknown>)["Registrar"];
-    registrar = typeof r === "string" ? r : null;
-  }
-
-  let dnsHealthy = false;
-  let hasMx = false;
-  let hasSpf = false;
-  if (dnsResult.status === "fulfilled") {
-    const [a, mx, txt] = dnsResult.value;
-    dnsHealthy =
-      a.status === "fulfilled" &&
-      Array.isArray(a.value) &&
-      (a.value as string[]).length > 0;
-    hasMx =
-      mx.status === "fulfilled" &&
-      Array.isArray(mx.value) &&
-      (mx.value as unknown[]).length > 0;
-    if (txt.status === "fulfilled" && Array.isArray(txt.value)) {
-      hasSpf = (txt.value as string[][]).some((rec) =>
-        rec.join("").toLowerCase().includes("v=spf1"),
-      );
-    }
-  }
-
-  const ageDays = createdAt
-    ? Math.floor((Date.now() - createdAt.getTime()) / 86_400_000)
-    : null;
-  const ageYears = ageDays !== null ? Math.round((ageDays / 365.25) * 10) / 10 : null;
+  const w = whoisR.data;
+  const d = dnsR.data;
 
   return {
     domain,
     tld,
-    ageDays,
-    ageYears,
-    registrar,
-    createdAt: createdAt ? createdAt.toISOString() : null,
+    ageDays: w?.ageDays ?? null,
+    ageYears: w?.ageYears ?? null,
+    registrar: w?.registrar ?? null,
+    createdAt: w?.createdAt ?? null,
     https,
-    dnsHealthy,
-    hasMx,
-    hasSpf,
+    dnsHealthy: !!d && d.a.length + d.aaaa.length > 0,
+    hasMx: !!d && d.mx.length > 0,
+    hasSpf: !!d && d.hasSpf,
+    hasDmarc: !!d && d.hasDmarc,
+    provenance: {
+      whois: w ? whoisR.source : null,
+      dns: d ? dnsR.source : null,
+    },
   };
 }

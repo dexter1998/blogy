@@ -27,7 +27,7 @@ const responseSample = JSON.stringify(
           { question: "What is a good domain authority score?", source: "duckduckgo", depth: 0, expanded: false },
           { question: "Why does domain authority matter for SEO?", source: "expansion", depth: 0, expanded: false },
         ],
-        related: ["page authority", "moz domain authority", "domain rating"],
+        related: ["page authority", "domain authority score", "url strength"],
         questionTypes: { how: 4, what: 6, why: 3, is: 2, can: 3 },
       },
     },

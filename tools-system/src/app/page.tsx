@@ -14,12 +14,12 @@ export default function Home() {
           </h1>
           <p className="mx-auto mt-5 max-w-2xl text-lg text-muted-fg">
             Use the tools in your browser. Ship the APIs in your product. One
-            transparent scoring engine — no fake Moz numbers, no random
-            outputs.
+            transparent scoring engine, derived from public signals only —
+            no proprietary metrics emulated, no random outputs.
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
             <Link href="/tools/da-pa-checker">
-              <Button size="lg">Try DA / PA Checker →</Button>
+              <Button size="lg">Try Authority Checker →</Button>
             </Link>
             <Link href="/docs-api">
               <Button size="lg" variant="ghost">

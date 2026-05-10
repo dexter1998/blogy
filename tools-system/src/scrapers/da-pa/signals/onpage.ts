@@ -1,5 +1,11 @@
-import * as cheerio from "cheerio";
-import { httpGet } from "@/scrapers/_shared/http";
+/**
+ * Single-page on-page bundle. Pulls page metadata once via the
+ * /providers/metadata module, layers in schema-extraction from the same
+ * HTML, and combines with the backlink-footprint reading (OpenPageRank +
+ * Common Crawl) to populate the AuthoritySignals.
+ */
+
+import { fetchPageMetadata, extractSchema, fetchBacklinkFootprint } from "@/providers";
 import type {
   AuthoritySignals,
   ContentSignals,
@@ -9,23 +15,20 @@ import type {
 
 const SUSPICIOUS_KEYWORDS = [
   "viagra",
+  "cialis",
   "casino",
+  "online-casino",
   "porn",
   "escort",
   "loan-now",
+  "payday-loan",
   "buy-followers",
+  "buy-backlinks",
   "free-iphone",
-];
-
-const SOCIAL_HOSTS = [
-  "twitter.com",
-  "x.com",
-  "facebook.com",
-  "linkedin.com",
-  "instagram.com",
-  "youtube.com",
-  "github.com",
-  "tiktok.com",
+  "click-here-to-win",
+  "replica-watch",
+  "essay-writing-service",
+  "guest-post-service",
 ];
 
 export type OnPageBundle = {
@@ -36,154 +39,92 @@ export type OnPageBundle = {
   redirectChainLength: number;
 };
 
-export async function collectOnPageSignals(
-  url: string,
-): Promise<OnPageBundle> {
-  const res = await httpGet(url, { maxRedirects: 5 });
+export async function collectOnPageSignals(url: string): Promise<OnPageBundle> {
+  const meta = await fetchPageMetadata(url, { keepRaw: true });
+  const m = meta.data;
+  // Fall back to the requested URL's hostname when the page itself was
+  // unreachable — many sites (justdial, etc.) block bot UAs entirely yet
+  // still appear in OPR / Common Crawl. We must still fetch backlink
+  // signals so authority isn't wrongly zeroed for those domains.
+  const host = (
+    m.finalUrl ? new URL(m.finalUrl).hostname : new URL(url).hostname
+  ).replace(/^www\./, "");
 
-  if (!res.ok) {
+  if (!m.reachable) {
+    // Backlink-footprint providers don't need our HTML — fetch them anyway.
+    const footprint = await fetchBacklinkFootprint(host);
     return {
-      content: emptyContent(res.status ?? null),
+      content: emptyContent(m.statusCode),
       trust: emptyTrust(),
-      authority: emptyAuthority(),
+      authority: {
+        pageRank01: footprint.data.pageRank01,
+        refDomainsObserved: footprint.data.refDomainsObserved,
+        linkSamplesObserved: footprint.data.linkSamplesObserved,
+        outboundHostDiversity: null,
+        brandConsistency: 0,
+        providers: footprint.sources,
+      },
       spam: emptySpam(),
       redirectChainLength: 0,
     };
   }
 
-  const $ = cheerio.load(res.body);
-  const origin = new URL(res.finalUrl).origin;
-  const text = $("body").text().replace(/\s+/g, " ").trim();
-  const wordCount = text ? text.split(" ").length : 0;
+  const schema = meta.rawHtml
+    ? extractSchema(meta.rawHtml)
+    : { jsonLdCount: 0, microdataCount: 0, detectedTypes: [], hasOrganization: false, hasWebSite: false, hasBreadcrumb: false };
 
-  const links = $("a[href]").toArray();
-  let internal = 0;
-  let external = 0;
-  let emptyAnchor = 0;
-  const externalHosts = new Set<string>();
-  const social = new Set<string>();
+  const footprint = host
+    ? await fetchBacklinkFootprint(host)
+    : { data: { refDomainsObserved: null, linkSamplesObserved: null, pageRank01: null, confidence: 0 }, sources: [] };
 
-  for (const el of links) {
-    const href = ($(el).attr("href") ?? "").trim();
-    if (!href || href.startsWith("#") || href.startsWith("javascript:")) continue;
-    const anchor = $(el).text().trim();
-    if (!anchor) emptyAnchor += 1;
-    let absolute: URL;
-    try {
-      absolute = new URL(href, origin);
-    } catch {
-      continue;
-    }
-    if (absolute.origin === origin) {
-      internal += 1;
-    } else {
-      external += 1;
-      externalHosts.add(absolute.hostname);
-      const stripped = absolute.hostname.replace(/^www\./, "");
-      if (SOCIAL_HOSTS.some((h) => stripped === h || stripped.endsWith(`.${h}`))) {
-        social.add(stripped);
-      }
-    }
-  }
-
-  const totalLinks = internal + external;
-  const outboundLinkRatio = totalLinks ? external / totalLinks : 0;
-  const emptyAnchorRatio = totalLinks ? emptyAnchor / totalLinks : 0;
-
-  const lowerHtml = res.body.toLowerCase();
+  const lowerHtml = meta.rawHtml ? meta.rawHtml.toLowerCase() : "";
   const suspiciousKeywordHits = SUSPICIOUS_KEYWORDS.reduce(
     (acc, k) => acc + (lowerHtml.includes(k) ? 1 : 0),
     0,
   );
 
-  const internalHrefs = new Set<string>();
-  $("a[href]").each((_, el) => {
-    const href = ($(el).attr("href") ?? "").trim();
-    if (!href) return;
-    try {
-      const u = new URL(href, origin);
-      if (u.origin === origin) internalHrefs.add(u.pathname.toLowerCase());
-    } catch {
-      /* ignore */
-    }
-  });
-  const has = (...needles: string[]) =>
-    Array.from(internalHrefs).some((p) => needles.some((n) => p.includes(n)));
-
-  const trust: TrustSignals = {
-    hasPrivacyPolicy: has("privacy", "privacidad", "datenschutz"),
-    hasContactPage: has("contact", "contacto", "kontakt"),
-    hasAboutPage: has("about", "about-us", "company", "team"),
-    hasSchemaOrg:
-      $('script[type="application/ld+json"]').length > 0 ||
-      /itemtype=["']https?:\/\/schema\.org/i.test(res.body),
-    hasOpenGraph: $('meta[property^="og:"]').length > 0,
-    socialProfiles: Array.from(social),
-  };
-
   const content: ContentSignals = {
     reachable: true,
-    statusCode: res.status,
-    titleLength: ($("title").first().text() ?? "").trim().length || null,
-    metaDescriptionLength:
-      ($('meta[name="description"]').attr("content") ?? "").trim().length || null,
-    h1Count: $("h1").length,
-    internalLinks: internal,
-    externalLinks: external,
-    wordCount,
-    hasFavicon:
-      $('link[rel~="icon"]').length > 0 || $('link[rel="shortcut icon"]').length > 0,
-    hasViewport: $('meta[name="viewport"]').length > 0,
-    language: $("html").attr("lang") ?? null,
+    statusCode: m.statusCode,
+    titleLength: m.titleLength,
+    metaDescriptionLength: m.metaDescriptionLength,
+    h1Count: m.h1Count,
+    internalLinks: m.internalLinks,
+    externalLinks: m.externalLinks,
+    wordCount: m.wordCount,
+    hasFavicon: m.hasFavicon,
+    hasViewport: m.hasViewport,
+    language: m.language,
   };
 
-  const brandFromDomain = new URL(res.finalUrl).hostname
-    .replace(/^www\./, "")
-    .split(".")[0]!
-    .toLowerCase();
-  const titleHasBrand = $("title")
-    .text()
-    .toLowerCase()
-    .includes(brandFromDomain);
-  const ogHasBrand = ($('meta[property="og:site_name"]').attr("content") ?? "")
-    .toLowerCase()
-    .includes(brandFromDomain);
-  const brandConsistency = (titleHasBrand ? 0.5 : 0) + (ogHasBrand ? 0.5 : 0);
+  const trust: TrustSignals = {
+    hasPrivacyPolicy: m.hasPrivacyPolicy,
+    hasContactPage: m.hasContactPage,
+    hasAboutPage: m.hasAboutPage,
+    hasSchemaOrg: schema.jsonLdCount + schema.microdataCount > 0,
+    hasOpenGraph: m.hasOpenGraph,
+    socialProfiles: m.socialProfiles,
+    schemaTypes: schema.detectedTypes.length,
+    hasOrganizationSchema: schema.hasOrganization,
+  };
 
   const authority: AuthoritySignals = {
-    /**
-     * Coarse referring-domain estimate: number of distinct *external* hosts the
-     * homepage links *out* to is a proxy for how "connected" the site is to
-     * the wider web. It correlates loosely with link-graph centrality without
-     * requiring a paid backlink API. Banded so we don't pretend to be precise.
-     */
-    referringDomainsEstimate: bandify(externalHosts.size * 6),
-    backlinkEstimate: bandify(externalHosts.size * 18),
-    brandConsistency,
+    pageRank01: footprint.data.pageRank01,
+    refDomainsObserved: footprint.data.refDomainsObserved,
+    linkSamplesObserved: footprint.data.linkSamplesObserved,
+    outboundHostDiversity: m.externalHosts.length,
+    brandConsistency: m.brandConsistency,
+    providers: footprint.sources,
   };
 
   const spam: SpamSignals = {
-    outboundLinkRatio: round(outboundLinkRatio, 2),
-    emptyAnchorRatio: round(emptyAnchorRatio, 2),
+    outboundLinkRatio: m.outboundLinkRatio,
+    emptyAnchorRatio: m.emptyAnchorRatio,
     redirectChainLength: 0,
     suspiciousKeywordHits,
   };
 
   return { content, trust, authority, spam, redirectChainLength: 0 };
-}
-
-function bandify(raw: number): number | null {
-  if (!Number.isFinite(raw) || raw < 0) return null;
-  if (raw < 5) return Math.max(0, Math.round(raw));
-  if (raw < 50) return Math.round(raw / 5) * 5;
-  if (raw < 500) return Math.round(raw / 25) * 25;
-  if (raw < 5_000) return Math.round(raw / 100) * 100;
-  return Math.round(raw / 1000) * 1000;
-}
-
-function round(n: number, p: number): number {
-  const f = 10 ** p;
-  return Math.round(n * f) / f;
 }
 
 function emptyContent(status: number | null): ContentSignals {
@@ -209,10 +150,19 @@ function emptyTrust(): TrustSignals {
     hasSchemaOrg: false,
     hasOpenGraph: false,
     socialProfiles: [],
+    schemaTypes: 0,
+    hasOrganizationSchema: false,
   };
 }
 function emptyAuthority(): AuthoritySignals {
-  return { referringDomainsEstimate: null, backlinkEstimate: null, brandConsistency: 0 };
+  return {
+    pageRank01: null,
+    refDomainsObserved: null,
+    linkSamplesObserved: null,
+    outboundHostDiversity: null,
+    brandConsistency: 0,
+    providers: [],
+  };
 }
 function emptySpam(): SpamSignals {
   return {

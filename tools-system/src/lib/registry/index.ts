@@ -23,17 +23,25 @@ export type ToolEntry = {
 export const tools: ToolEntry[] = [
   {
     slug: "da-pa-checker",
-    name: "DA PA Checker",
-    tagline: "Estimate Domain & Page Authority from public signals",
+    name: "Authority Checker",
+    tagline: "Authority Score, Page Strength, Domain Strength, URL Strength",
     description:
-      "Believable, transparent authority estimates for any domain or URL. Built from WHOIS, DNS, robots/sitemap, on-page trust signals, and indexation — never fake Moz numbers.",
+      "Blogy-native authority readings for any domain or URL. Built from WHOIS/RDAP, DNS-over-HTTPS, robots/sitemap, on-page trust signals, schema.org, OpenPageRank, and Common Crawl footprints — no proprietary third-party SEO metrics emulated.",
     category: "SEO",
     status: "live",
     toolPath: "/tools/da-pa-checker",
     docsPath: "/docs-api/da-pa-api",
     endpoint: "/api/v1/da-pa",
     method: "POST",
-    tags: ["DA", "PA", "Authority", "Spam Score", "Domain Age"],
+    tags: [
+      "Authority Score",
+      "Page Strength",
+      "Domain Strength",
+      "URL Strength",
+      "Spam Score",
+      "Stability Score",
+      "Domain Age",
+    ],
   },
   {
     slug: "ai-readiness",
@@ -188,6 +196,20 @@ export const tools: ToolEntry[] = [
     endpoint: "/api/v1/backlinks",
     method: "POST",
     tags: ["Backlinks", "Common Crawl", "Referring Domains"],
+  },
+  {
+    slug: "whois-checker",
+    name: "WHOIS / RDAP Lookup",
+    tagline: "Live domain registration data — RDAP-backed",
+    description:
+      "Real-time RDAP lookup for any domain. Routes through the IANA bootstrap registry to query authoritative TLD endpoints directly. Returns registrar, registration date, expiry, nameservers, DNSSEC, status codes, abuse contact, and the full RDAP JSON.",
+    category: "Technical",
+    status: "live",
+    toolPath: "/tools/whois-checker",
+    docsPath: "/docs-api/whois-api",
+    endpoint: "/api/v1/whois",
+    method: "POST",
+    tags: ["WHOIS", "RDAP", "Domain Age", "Registrar", "DNSSEC", "Nameservers", "Expiry"],
   },
   {
     slug: "ai-humanizer",

@@ -1,0 +1,25 @@
+export type PageMetadata = {
+  reachable: boolean;
+  statusCode: number | null;
+  finalUrl: string | null;
+  titleLength: number | null;
+  metaDescriptionLength: number | null;
+  h1Count: number;
+  internalLinks: number;
+  externalLinks: number;
+  externalHosts: string[];
+  socialProfiles: string[];
+  emptyAnchorRatio: number;
+  outboundLinkRatio: number;
+  wordCount: number;
+  hasFavicon: boolean;
+  hasViewport: boolean;
+  hasOpenGraph: boolean;
+  hasTwitterCard: boolean;
+  language: string | null;
+  hasPrivacyPolicy: boolean;
+  hasContactPage: boolean;
+  hasAboutPage: boolean;
+  brandConsistency: number;
+  rawHtmlSnippetLength: number;
+};

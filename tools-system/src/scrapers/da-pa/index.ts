@@ -7,7 +7,6 @@ import type { DaPaInput, DaPaResult, ScoreBreakdown } from "./types";
 import {
   buildExplanations,
   combineScores,
-  knownAuthorityFloor,
   scoreAuthority,
   scoreContent,
   scoreDomain,
@@ -40,22 +39,11 @@ export const daPaScraper: Scraper<DaPaInput, DaPaResult> = {
       indexation: scoreIndexation(indexation),
       content: scoreContent(onPage.content),
       trust: scoreTrust(onPage.trust),
-      authority: scoreAuthority(onPage.authority),
-      spam: scoreSpam(onPage.spam),
+      authority: scoreAuthority(onPage.authority, domain, indexation),
+      spam: scoreSpam(onPage.spam, onPage.content, onPage.trust),
     };
 
-    let combined = combineScores(breakdown);
-
-    // Floor for well-known mega-domains. We're not going to claim google.com is a 47.
-    const floor = knownAuthorityFloor(domain.domain);
-    if (floor !== null) {
-      combined = {
-        ...combined,
-        da: Math.max(combined.da, floor),
-        pa: Math.max(combined.pa, Math.round(floor * 0.9)),
-        confidence: Math.max(combined.confidence, 95),
-      };
-    }
+    const combined = combineScores(breakdown);
 
     const explanations = buildExplanations(
       breakdown,
@@ -63,6 +51,7 @@ export const daPaScraper: Scraper<DaPaInput, DaPaResult> = {
       indexation,
       onPage.trust,
       onPage.spam,
+      onPage.authority,
     );
 
     const result: DaPaResult = {
@@ -70,17 +59,27 @@ export const daPaScraper: Scraper<DaPaInput, DaPaResult> = {
       domain: domain.domain,
       fetchedAt: new Date().toISOString(),
       scores: {
-        da: combined.da,
-        pa: combined.pa,
-        spam: breakdown.spam,
+        authorityScore: combined.authorityScore,
+        pageStrength: combined.pageStrength,
+        domainStrength: combined.domainStrength,
+        urlStrength: combined.urlStrength,
+        spamScore: combined.spamScore,
+        stabilityScore: combined.stabilityScore,
         trust: combined.trust,
         confidence: combined.confidence,
+        // Legacy aliases (deprecated). Removed in a future version.
+        da: combined.authorityScore,
+        pa: combined.pageStrength,
+        dr: combined.domainStrength,
+        ur: combined.urlStrength,
+        ss: combined.spamScore,
+        st: combined.stabilityScore,
       },
       metrics: {
         domainAgeYears: domain.ageYears,
         indexedPages: indexation.indexedPages,
-        referringDomainsEstimate: onPage.authority.referringDomainsEstimate,
-        backlinkEstimate: onPage.authority.backlinkEstimate,
+        pageRank01: onPage.authority.pageRank01,
+        referringCaptures: onPage.authority.refDomainsObserved,
         https: domain.https,
       },
       signals: {

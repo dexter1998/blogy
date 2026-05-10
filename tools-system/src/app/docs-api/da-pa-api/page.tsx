@@ -5,9 +5,9 @@ import { Badge } from "@/components/ui";
 import { env } from "@/lib/env";
 
 export const metadata: Metadata = {
-  title: "DA / PA API Reference",
+  title: "Authority API Reference",
   description:
-    "REST API for domain & page authority estimation. Single or bulk URLs, JSON response, transparent scoring breakdown.",
+    "REST API for Authority Score, Page Strength, Domain Strength, URL Strength, Spam Score, and Stability Score. Single or bulk URLs, JSON response, transparent breakdown.",
   alternates: { canonical: "/docs-api/da-pa-api" },
 };
 
@@ -81,12 +81,23 @@ const exampleResponse = JSON.stringify(
         url: "https://blogy.in",
         domain: "blogy.in",
         fetchedAt: "2026-05-10T08:14:22.318Z",
-        scores: { da: 24, pa: 28, spam: 4, trust: 31, confidence: 100 },
+        scores: {
+          authorityScore: 12,
+          pageStrength: 16,
+          domainStrength: 10,
+          urlStrength: 14,
+          spamScore: 4,
+          stabilityScore: 28,
+          trust: 31,
+          confidence: 100,
+          // deprecated short aliases (kept for backward compatibility)
+          da: 12, pa: 16, dr: 10, ur: 14, ss: 4, st: 28,
+        },
         metrics: {
           domainAgeYears: 0.3,
           indexedPages: 18,
-          referringDomainsEstimate: 25,
-          backlinkEstimate: 75,
+          pageRank01: 0.21,
+          referringCaptures: 8,
           https: true,
         },
         signals: {
@@ -127,10 +138,16 @@ export default function Page() {
         <>
           <Section id="overview" title="Overview">
             <p>
-              Estimate <strong>Domain Authority</strong>, <strong>Page Authority</strong>,{" "}
-              <strong>Spam Score</strong>, and underlying signals for any public URL.
-              The engine combines WHOIS, DNS, robots/sitemap inspection, on-page
-              parsing, and external-link diversity into a single deterministic score.
+              Compute Blogy-native authority scores for any public URL —{" "}
+              <strong>Authority Score</strong>, <strong>Page Strength</strong>,{" "}
+              <strong>Domain Strength</strong>, <strong>URL Strength</strong>,{" "}
+              <strong>Spam Score</strong>, <strong>Stability Score</strong> —
+              plus the underlying signals. The engine combines WHOIS/RDAP,
+              DNS-over-HTTPS, robots/sitemap inspection, on-page parsing,
+              schema.org extraction, OpenPageRank, Common Crawl footprint, and
+              public search-presence corroboration into a single deterministic
+              score. No proprietary third-party SEO metrics are queried or
+              emulated.
             </p>
             <p>
               Identical input produces identical output (cached for{" "}
@@ -200,12 +217,16 @@ export default function Page() {
             <p>The <code>data.result</code> object contains:</p>
             <ParamTable
               rows={[
-                { name: "scores.da", type: "number 0–100", required: "yes", description: "Domain Authority estimate." },
-                { name: "scores.pa", type: "number 0–100", required: "yes", description: "Page Authority estimate." },
-                { name: "scores.spam", type: "number 0–100", required: "yes", description: "Higher = more spam signals." },
+                { name: "scores.authorityScore", type: "number 0–100", required: "yes", description: "Whole-domain authority composite." },
+                { name: "scores.pageStrength", type: "number 0–100", required: "yes", description: "Single-page authority composite." },
+                { name: "scores.domainStrength", type: "number 0–100", required: "yes", description: "Backlink-weighted domain reading." },
+                { name: "scores.urlStrength", type: "number 0–100", required: "yes", description: "Backlink-weighted page reading." },
+                { name: "scores.spamScore", type: "number 0–100", required: "yes", description: "Spam pattern score — higher is spammier." },
+                { name: "scores.stabilityScore", type: "number 0–100", required: "yes", description: "Trust + cleanliness + maturity composite." },
+                { name: "scores.{da,pa,dr,ur,ss,st}", type: "number 0–100", required: "yes", description: "Deprecated short aliases. Use the long-form Blogy-native fields above." },
                 { name: "scores.trust", type: "number 0–100", required: "yes", description: "Composite trust signal." },
                 { name: "scores.confidence", type: "number 0–100", required: "yes", description: "How many sub-signals contributed." },
-                { name: "metrics.*", type: "object", required: "yes", description: "Headline numbers: age, indexed pages, ref domains, backlinks, https." },
+                { name: "metrics.*", type: "object", required: "yes", description: "Headline numbers: domain age, indexed pages, OpenPageRank reading, referring captures, https." },
                 { name: "signals.*", type: "object", required: "yes", description: "Per-category raw signals used by the scoring engine." },
                 { name: "explanations", type: "string[]", required: "yes", description: "Human-readable reasons for the score." },
                 { name: "breakdown", type: "object", required: "no (debug only)", description: "Per-category sub-scores before weighting." },

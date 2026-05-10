@@ -63,10 +63,11 @@ export default function Page() {
             Without verification you get the raw CC candidate list.
           </p>
           <p>
-            <strong>Limitations</strong>: Common Crawl is sampled, not
-            exhaustive. It will under-report compared to Ahrefs/Majestic
-            (which run their own crawlers). Use this for free baseline
-            discovery; pair with a paid backlink API for exhaustive audits.
+            <strong>Limitations</strong>: Common Crawl is a sampled snapshot
+            of the public web, not an exhaustive crawl. Counts are intended
+            as a baseline for discovery and cross-checking — for full
+            inventories, augment with additional public datasets or your own
+            crawl.
           </p>
         </>
       }
