@@ -11,7 +11,7 @@ export type ToolEntry = {
   name: string;
   tagline: string;
   description: string;
-  category: "SEO" | "Content" | "Research" | "Technical" | "AI" | "Performance";
+  category: "SEO" | "Content" | "Research" | "Technical" | "AI" | "Performance" | "Intelligence";
   status: ToolStatus;
   toolPath: `/tools/${string}`;
   docsPath: `/docs-api/${string}`;
@@ -21,6 +21,32 @@ export type ToolEntry = {
 };
 
 export const tools: ToolEntry[] = [
+  {
+    slug: "website-intelligence",
+    name: "Website Intelligence Engine",
+    tagline: "22 signals from one crawl — no third-party APIs",
+    description:
+      "Crawl any website once and extract brand, metadata, schema, social, sitemap, payments, tech-stack, analytics, AI readiness, security, performance, hosting, geo, ads, and more. Modular extractor architecture — every signal is also exposed as its own API endpoint. Pure scraping: no Ahrefs, BuiltWith, Moz, or SEMrush APIs.",
+    category: "Intelligence",
+    status: "live",
+    toolPath: "/tools/website-intelligence",
+    docsPath: "/docs-api/website-intelligence-api",
+    endpoint: "/api/v1/website-intelligence",
+    method: "POST",
+    tags: [
+      "Website Intelligence",
+      "Brand Intelligence",
+      "Tech Stack",
+      "Payments",
+      "Schema",
+      "Sitemap",
+      "Social",
+      "AI Readiness",
+      "Security",
+      "Hosting",
+      "Performance",
+    ],
+  },
   {
     slug: "da-pa-checker",
     name: "Authority Checker",
