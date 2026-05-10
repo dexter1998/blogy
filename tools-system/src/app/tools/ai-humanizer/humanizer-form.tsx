@@ -127,6 +127,18 @@ export function HumanizerForm() {
               )}
             </Card>
           </div>
+
+          <Card>
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-fg">
+                Raw API response
+              </h3>
+              <CopyButton text={JSON.stringify(result, null, 2)} />
+            </div>
+            <pre className="code-block max-h-96 overflow-auto text-xs">
+{JSON.stringify(result, null, 2)}
+            </pre>
+          </Card>
         </>
       )}
     </div>
