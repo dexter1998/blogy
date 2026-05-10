@@ -197,17 +197,17 @@ export const tools: ToolEntry[] = [
   },
   {
     slug: "internal-links",
-    name: "Internal Links Audit",
-    tagline: "Hub, orphan, and graph analysis",
+    name: "Internal Link Extractor",
+    tagline: "Single-page link audit — internal vs external, navbar vs footer",
     description:
-      "BFS-crawls a site to build the internal-link graph. Surfaces hubs, orphans, deep pages, broken pages, and noindex coverage with distribution + health scores.",
+      "Pulls every link off one page, separates internal (same domain or subdomain) from external, buckets them by navbar / footer / body, and flags broken targets. Paginated 500 at a time.",
     category: "SEO",
     status: "live",
     toolPath: "/tools/internal-links",
     docsPath: "/docs-api/internal-links-api",
     endpoint: "/api/v1/internal-links",
     method: "POST",
-    tags: ["Internal Links", "Crawl", "Site Architecture", "Orphans"],
+    tags: ["Internal Links", "External Links", "On-Page", "Broken Links"],
   },
   {
     slug: "backlinks",

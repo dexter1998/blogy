@@ -1,40 +1,62 @@
 export type InternalLinkInput = {
   url: string;
-  maxPages?: number;
+  /** Pagination offset for the link list slice (default 0). */
+  offset?: number;
+  /** Pagination limit for the link list slice (default 500, max 500). */
+  limit?: number;
   fresh?: boolean;
 };
 
-export type LinkNode = {
+export type LinkSection = "navbar" | "footer" | "body";
+export type LinkScope = "internal" | "external";
+
+export type ExtractedLink = {
+  /** Resolved absolute URL. */
   url: string;
-  inboundCount: number;
-  outboundCount: number;
-  depth: number;
-  isOrphan: boolean;
-  noindex: boolean;
+  /** Raw href as written in the HTML. */
+  href: string;
+  /** Visible anchor text (collapsed whitespace). */
+  text: string;
+  section: LinkSection;
+  scope: LinkScope;
+  rel: string | null;
+  /** Status code from the live check; null = no response (timeout/network). */
   status: number | null;
-  title: string | null;
+  /** True when status is null or >= 400. */
+  broken: boolean;
+};
+
+export type SectionCounts = {
+  total: number;
+  internal: number;
+  external: number;
+  broken: number;
 };
 
 export type InternalLinkResult = {
+  /** The fetched page URL (post-redirect). */
+  pageUrl: string;
+  /** The origin of the fetched page. */
   origin: string;
-  startedFrom: string;
+  /** Registrable hostname used to bucket internal vs external. */
+  baseHost: string;
+  /** Status of the source page fetch. */
+  pageStatus: number | null;
+  pageTitle: string | null;
   fetchedAt: string;
-  pagesCrawled: number;
-  truncated: boolean;
-  graph: {
-    nodes: LinkNode[];
-    edgeCount: number;
+
+  totals: {
+    all: SectionCounts;
+    navbar: SectionCounts;
+    footer: SectionCounts;
+    body: SectionCounts;
   };
-  hubs: Array<{ url: string; inboundCount: number }>;
-  orphans: string[];
-  deepPages: Array<{ url: string; depth: number }>;
-  noindexed: string[];
-  brokenLinks: Array<{ url: string; status: number | null }>;
-  scores: {
-    overall: number;
-    coverage: number;
-    distribution: number;
-    health: number;
+
+  /** Sliced view, governed by offset/limit on the request. */
+  page: {
+    offset: number;
+    limit: number;
+    total: number;
+    links: ExtractedLink[];
   };
-  recommendations: Array<{ priority: "high" | "medium" | "low"; message: string }>;
 };

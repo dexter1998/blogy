@@ -7,26 +7,27 @@ import { LinksForm } from "./links-form";
 const tool = getTool("internal-links")!;
 
 export const metadata: Metadata = {
-  title: "Internal Links Audit — Hub & Orphan Detection",
+  title: "Internal Link Extractor — Internal / External / Broken Links",
   description:
-    "BFS-crawl a site to build the internal-link graph: hubs, orphans, deep pages, broken pages, noindex. Distribution + health scoring.",
+    "Pull every link off a single page. Categorises navbar, footer, and body links into internal vs external (subdomains count as internal) and live-checks each one for broken targets. Paginated 500-at-a-time.",
   alternates: { canonical: "/tools/internal-links" },
 };
 
 const exampleCurl = `curl -X POST ${env.siteUrl}/api/v1/internal-links \\
   -H "Content-Type: application/json" \\
-  -d '{"url": "blogy.in", "maxPages": 30}'`;
+  -d '{"url": "https://example.com/", "offset": 0, "limit": 500}'`;
 
 export default function Page() {
   return (
     <ToolShell
       tool={tool}
-      badge="SEO · Architecture"
+      badge="SEO · On-Page"
       howItWorks={[
-        "BFS-crawls up to 50 pages from the seed URL",
-        "Builds inbound/outbound link graph",
-        "Detects hubs, orphans, deep pages (depth ≥ 4)",
-        "Flags broken (4xx/5xx) and noindex pages",
+        "Fetches the one page you supply (no crawling of other pages)",
+        "Walks every <a href> and buckets it into navbar / footer / body by ancestor",
+        "Same domain or subdomain = internal · everything else = external",
+        "Pings each unique link and flags 4xx/5xx/timeouts as broken",
+        "Returns 500 links per request — use the Load next 500 button for more",
       ]}
       exampleCurl={exampleCurl}
     >

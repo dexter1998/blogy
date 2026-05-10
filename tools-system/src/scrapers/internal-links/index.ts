@@ -1,38 +1,112 @@
 /**
- * Internal Link scraper. BFS-crawls a site (capped) and builds the
- * inbound/outbound graph: hubs, orphans, deep pages, broken links,
- * noindexed pages. Scores distribution and health.
+ * Internal Link extractor (single page).
+ *
+ * Fetches one URL, walks every <a href>, and categorises each link by:
+ *   - section: navbar / footer / body (based on ancestor <header>/<nav>/<footer>)
+ *   - scope:   internal (same registrable host or a subdomain) vs external
+ *
+ * Then HEAD-pings every unique destination to flag broken links. Results
+ * are cached by URL; the API layer slices the link list with offset/limit
+ * so the UI can do "load next 500" without a re-fetch.
  */
 
+import * as cheerio from "cheerio";
 import { env } from "@/lib/env";
 import type { Scraper, ScrapeContext } from "@/scrapers/base/scraper";
 import { ScrapeError } from "@/scrapers/base/scraper";
-import { crawlSite, type CrawledPage } from "@/scrapers/_shared/crawler";
-import type { InternalLinkInput, InternalLinkResult, LinkNode } from "./types";
+import { httpGet } from "@/scrapers/_shared/http";
+import type {
+  ExtractedLink,
+  InternalLinkInput,
+  InternalLinkResult,
+  LinkSection,
+  SectionCounts,
+} from "./types";
 
-const clamp = (n: number) => Math.max(0, Math.min(100, Math.round(n)));
+const HARD_LINK_CAP = 5000;
+const BROKEN_CHECK_CONCURRENCY = 12;
+const BROKEN_CHECK_TIMEOUT = 8000;
 
-function bfsDepths(
-  start: string,
-  pages: Map<string, CrawledPage>,
-): Map<string, number> {
-  const depth = new Map<string, number>();
-  depth.set(start, 0);
-  const queue: string[] = [start];
-  while (queue.length > 0) {
-    const u = queue.shift()!;
-    const d = depth.get(u)!;
-    const page = pages.get(u);
-    if (!page) continue;
-    for (const next of page.internalLinks) {
-      if (!pages.has(next)) continue;
-      if (!depth.has(next)) {
-        depth.set(next, d + 1);
-        queue.push(next);
+function emptyCounts(): SectionCounts {
+  return { total: 0, internal: 0, external: 0, broken: 0 };
+}
+
+/**
+ * Best-effort registrable host. We don't ship a public-suffix list, so we
+ * keep the last two labels (e.g. blogy.in, example.co.uk-style cases will
+ * over-match, but for internal vs external bucketing it's acceptable —
+ * the user wants "same domain or subdomain" to count as internal).
+ */
+function registrableHost(hostname: string): string {
+  const h = hostname.toLowerCase();
+  const parts = h.split(".");
+  if (parts.length <= 2) return h;
+  return parts.slice(-2).join(".");
+}
+
+type CheerioWrap = ReturnType<cheerio.CheerioAPI>;
+
+// Use the closest <footer>/<nav>/<header> ancestor to bucket. Footer wins
+// over navbar when nested (rare). Falls back to role / class / id hints so
+// sites that build their own chrome with <div class="footer"> still bucket.
+function sectionFor($el: CheerioWrap): LinkSection {
+  if ($el.closest("footer").length) return "footer";
+  if ($el.closest("nav, header").length) return "navbar";
+  if ($el.closest('[role="contentinfo"]').length) return "footer";
+  if ($el.closest('[role="navigation"], [role="banner"]').length) return "navbar";
+  if ($el.closest('[class*="footer" i], [id*="footer" i]').length) return "footer";
+  if (
+    $el.closest(
+      '[class*="navbar" i], [class*="header" i], [id*="navbar" i], [id*="header" i]',
+    ).length
+  )
+    return "navbar";
+  return "body";
+}
+
+function normaliseHref(href: string, base: string): string | null {
+  try {
+    const u = new URL(href, base);
+    if (u.protocol !== "http:" && u.protocol !== "https:") return null;
+    u.hash = "";
+    return u.toString();
+  } catch {
+    return null;
+  }
+}
+
+function bumpCounts(c: SectionCounts, link: ExtractedLink) {
+  c.total += 1;
+  if (link.scope === "internal") c.internal += 1;
+  else c.external += 1;
+  if (link.broken) c.broken += 1;
+}
+
+async function checkStatus(url: string): Promise<number | null> {
+  // Use HEAD first via httpGet's fallback? httpGet only supports GET, so use
+  // a lightweight GET with a short timeout. Many servers return non-200 on HEAD.
+  const res = await httpGet(url, { timeoutMs: BROKEN_CHECK_TIMEOUT, maxRedirects: 5 });
+  return res.ok ? res.status : res.status;
+}
+
+async function checkAll(urls: string[]): Promise<Map<string, number | null>> {
+  const out = new Map<string, number | null>();
+  let cursor = 0;
+  async function worker() {
+    while (cursor < urls.length) {
+      const i = cursor++;
+      const u = urls[i];
+      if (!u) continue;
+      try {
+        out.set(u, await checkStatus(u));
+      } catch {
+        out.set(u, null);
       }
     }
   }
-  return depth;
+  const n = Math.min(BROKEN_CHECK_CONCURRENCY, Math.max(1, urls.length));
+  await Promise.all(Array.from({ length: n }, () => worker()));
+  return out;
 }
 
 export const internalLinksScraper: Scraper<InternalLinkInput, InternalLinkResult> = {
@@ -41,106 +115,116 @@ export const internalLinksScraper: Scraper<InternalLinkInput, InternalLinkResult
 
   cacheKey(input) {
     if (input.fresh) return null;
-    return `${input.maxPages ?? 30}:${new URL(input.url).toString()}`;
+    // Cache the full extraction by URL only — offset/limit are applied
+    // post-cache in the route layer so pagination doesn't refetch.
+    return new URL(input.url).toString();
   },
 
   async execute(input, _ctx: ScrapeContext): Promise<InternalLinkResult> {
-    const maxPages = Math.max(5, Math.min(50, input.maxPages ?? 30));
-    const crawl = await crawlSite(input.url, { maxPages, concurrency: 4 });
-    if (crawl.pages.length === 0) {
-      throw new ScrapeError("scrape_failed", "Crawl returned no pages");
+    const res = await httpGet(input.url, { timeoutMs: env.scrapeTimeoutMs });
+    if (!res.ok) {
+      throw new ScrapeError(
+        "scrape_failed",
+        `Could not fetch page (${res.error}: ${res.message})`,
+      );
     }
 
-    const pageMap = new Map(crawl.pages.map((p) => [p.url, p] as const));
-    const depths = bfsDepths(crawl.startedFrom, pageMap);
-    const inbound = new Map<string, number>();
-    let edgeCount = 0;
+    const $ = cheerio.load(res.body);
+    const finalUrl = res.finalUrl;
+    const origin = new URL(finalUrl).origin;
+    const baseHost = registrableHost(new URL(finalUrl).hostname);
 
-    for (const p of crawl.pages) {
-      for (const link of p.internalLinks) {
-        if (!pageMap.has(link)) continue;
-        edgeCount += 1;
-        inbound.set(link, (inbound.get(link) ?? 0) + 1);
+    // First pass: parse every <a href>. We dedupe by (url + section) so a
+    // link appearing in both navbar and footer is reported twice (which is
+    // accurate — but a duplicate within the same section is collapsed).
+    const seen = new Set<string>();
+    const links: ExtractedLink[] = [];
+
+    $("a[href]").each((_, el) => {
+      const href = ($(el).attr("href") ?? "").trim();
+      if (!href) return;
+      if (
+        href.startsWith("javascript:") ||
+        href.startsWith("mailto:") ||
+        href.startsWith("tel:") ||
+        href.startsWith("#")
+      )
+        return;
+      const abs = normaliseHref(href, finalUrl);
+      if (!abs) return;
+      const $el = $(el);
+      const section = sectionFor($el);
+      const key = `${section}|${abs}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+
+      let host: string;
+      try {
+        host = new URL(abs).hostname.toLowerCase();
+      } catch {
+        return;
       }
+      const scope =
+        host === new URL(finalUrl).hostname.toLowerCase() ||
+        registrableHost(host) === baseHost
+          ? "internal"
+          : "external";
+
+      const text = ($(el).text() ?? "").replace(/\s+/g, " ").trim().slice(0, 200);
+      const rel = $(el).attr("rel")?.trim() || null;
+
+      links.push({
+        url: abs,
+        href,
+        text,
+        section,
+        scope,
+        rel,
+        status: null,
+        broken: false,
+      });
+
+      if (links.length >= HARD_LINK_CAP) return false;
+    });
+
+    // Live status check, parallel-bounded. We only ping each unique URL
+    // once and reuse the status across sections.
+    const uniqueUrls = Array.from(new Set(links.map((l) => l.url)));
+    const statuses = await checkAll(uniqueUrls);
+    for (const l of links) {
+      const s = statuses.get(l.url) ?? null;
+      l.status = s;
+      l.broken = s === null || s >= 400;
     }
 
-    const nodes: LinkNode[] = crawl.pages.map((p) => ({
-      url: p.url,
-      inboundCount: inbound.get(p.url) ?? 0,
-      outboundCount: p.internalLinks.filter((l) => pageMap.has(l)).length,
-      depth: depths.get(p.url) ?? -1,
-      isOrphan: (inbound.get(p.url) ?? 0) === 0 && p.url !== crawl.startedFrom,
-      noindex: p.metaRobotsNoindex,
-      status: p.status,
-      title: p.title,
-    }));
-
-    const hubs = [...nodes]
-      .sort((a, b) => b.inboundCount - a.inboundCount)
-      .slice(0, 10)
-      .map((n) => ({ url: n.url, inboundCount: n.inboundCount }));
-    const orphans = nodes.filter((n) => n.isOrphan).map((n) => n.url);
-    const deepPages = nodes
-      .filter((n) => n.depth >= 4)
-      .sort((a, b) => b.depth - a.depth)
-      .slice(0, 20)
-      .map((n) => ({ url: n.url, depth: n.depth }));
-    const noindexed = nodes.filter((n) => n.noindex).map((n) => n.url);
-    const brokenLinks = nodes
-      .filter((n) => !n.status || n.status >= 400)
-      .map((n) => ({ url: n.url, status: n.status }));
-
-    // ── Scoring ──
-    const reachable = nodes.filter((n) => n.depth >= 0).length;
-    const coverage = clamp((reachable / nodes.length) * 100);
-
-    // Distribution score: penalise both orphans and over-concentration
-    const orphanRatio = orphans.length / nodes.length;
-    const inboundCounts = nodes.map((n) => n.inboundCount);
-    const max = Math.max(1, ...inboundCounts);
-    const top1Ratio = max / Math.max(1, edgeCount);
-    let distribution = 100;
-    distribution -= orphanRatio * 60;
-    distribution -= Math.max(0, top1Ratio - 0.4) * 80;
-    distribution = clamp(distribution);
-
-    let health = 100;
-    health -= Math.min(50, brokenLinks.length * 10);
-    health -= Math.min(20, noindexed.length * 5);
-    health -= deepPages.length > 5 ? 20 : 0;
-    health = clamp(health);
-
-    const overall = clamp(coverage * 0.35 + distribution * 0.4 + health * 0.25);
-
-    // ── Recommendations ──
-    const recs: InternalLinkResult["recommendations"] = [];
-    if (orphans.length > 0)
-      recs.push({ priority: "high", message: `${orphans.length} orphan page(s) — link to them from a hub` });
-    if (top1Ratio > 0.5)
-      recs.push({ priority: "medium", message: "Inbound links are over-concentrated on a single page" });
-    if (deepPages.length > 5)
-      recs.push({ priority: "medium", message: `${deepPages.length} pages at depth ≥4 — flatten the tree` });
-    if (brokenLinks.length > 0)
-      recs.push({ priority: "high", message: `${brokenLinks.length} broken page(s) discovered` });
-    if (noindexed.length > 0)
-      recs.push({ priority: "low", message: `${noindexed.length} noindexed page(s) — verify intentional` });
-    if (crawl.truncated)
-      recs.push({ priority: "low", message: "Crawl truncated — increase maxPages for full graph (max 50)" });
+    // Section/total counts
+    const totals = {
+      all: emptyCounts(),
+      navbar: emptyCounts(),
+      footer: emptyCounts(),
+      body: emptyCounts(),
+    };
+    for (const l of links) {
+      bumpCounts(totals.all, l);
+      bumpCounts(totals[l.section], l);
+    }
 
     return {
-      origin: crawl.origin,
-      startedFrom: crawl.startedFrom,
+      pageUrl: finalUrl,
+      origin,
+      baseHost,
+      pageStatus: res.status,
+      pageTitle: ($("title").first().text() ?? "").trim() || null,
       fetchedAt: new Date().toISOString(),
-      pagesCrawled: crawl.pages.length,
-      truncated: crawl.truncated,
-      graph: { nodes, edgeCount },
-      hubs,
-      orphans,
-      deepPages,
-      noindexed,
-      brokenLinks,
-      scores: { overall, coverage, distribution, health },
-      recommendations: recs,
+      totals,
+      page: {
+        // The runner caches this whole object; the route layer slices
+        // `links` based on the request's offset/limit before responding.
+        offset: 0,
+        limit: links.length,
+        total: links.length,
+        links,
+      },
     };
   },
 };

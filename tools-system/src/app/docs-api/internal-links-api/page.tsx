@@ -4,14 +4,14 @@ import { DocsPage, makeStandardSamples } from "@/components/docs/docs-page";
 export const metadata: Metadata = {
   title: "Internal Links API Reference",
   description:
-    "REST API to crawl a site, build its internal-link graph, and surface hubs, orphans, and broken pages.",
+    "REST API that extracts every link from a single page, classifies internal vs external (subdomains count as internal), buckets by navbar/footer/body, and live-checks each one for broken targets.",
   alternates: { canonical: "/docs-api/internal-links-api" },
 };
 
 const samples = makeStandardSamples({
   endpoint: "/api/v1/internal-links",
-  exampleBody: { url: "blogy.in", maxPages: 30 },
-  responseExtractor: "data.result.scores",
+  exampleBody: { url: "https://example.com/", offset: 0, limit: 500 },
+  responseExtractor: "data.result.totals.all",
 });
 
 const responseSample = JSON.stringify(
@@ -19,22 +19,44 @@ const responseSample = JSON.stringify(
     ok: true,
     data: {
       result: {
-        origin: "https://blogy.in",
-        startedFrom: "https://blogy.in/",
+        pageUrl: "https://example.com/",
+        origin: "https://example.com",
+        baseHost: "example.com",
+        pageStatus: 200,
+        pageTitle: "Example Domain",
         fetchedAt: "2026-05-10T08:14:22.318Z",
-        pagesCrawled: 18,
-        truncated: false,
-        graph: { nodes: [], edgeCount: 76 },
-        hubs: [{ url: "https://blogy.in/", inboundCount: 17 }],
-        orphans: [],
-        deepPages: [],
-        noindexed: [],
-        brokenLinks: [],
-        scores: { overall: 86, coverage: 100, distribution: 78, health: 95 },
-        recommendations: [],
+        totals: {
+          all: { total: 124, internal: 96, external: 28, broken: 3 },
+          navbar: { total: 12, internal: 12, external: 0, broken: 0 },
+          footer: { total: 18, internal: 14, external: 4, broken: 1 },
+          body: { total: 94, internal: 70, external: 24, broken: 2 },
+        },
+        page: {
+          offset: 0,
+          limit: 500,
+          total: 124,
+          links: [
+            {
+              url: "https://example.com/pricing",
+              href: "/pricing",
+              text: "Pricing",
+              section: "navbar",
+              scope: "internal",
+              rel: null,
+              status: 200,
+              broken: false,
+            },
+          ],
+        },
       },
     },
-    meta: { requestId: "req_x9k2lzm", apiVersion: "v1", durationMs: 8482, cached: false, rateLimit: { limit: 30, remaining: 29, resetAt: "2026-05-10T08:15:00.000Z" } },
+    meta: {
+      requestId: "req_x9k2lzm",
+      apiVersion: "v1",
+      durationMs: 1840,
+      cached: false,
+      rateLimit: { limit: 30, remaining: 29, resetAt: "2026-05-10T08:15:00.000Z" },
+    },
   },
   null,
   2,
@@ -50,31 +72,34 @@ export default function Page() {
       intro={
         <>
           <p>
-            BFS-crawls a site (capped at 50 pages, concurrency 4) and
-            returns the internal-link graph with hubs, orphans, deep pages,
-            broken pages, and noindex coverage.
+            Fetches a single page and extracts every <code>{"<a href>"}</code>.
+            Each link is bucketed by section (<strong>navbar</strong> /{" "}
+            <strong>footer</strong> / <strong>body</strong>, based on its
+            ancestor <code>{"<nav>"}</code>/<code>{"<header>"}</code>/
+            <code>{"<footer>"}</code> with class/id fallbacks) and by scope
+            (<strong>internal</strong> = same domain or a subdomain;{" "}
+            <strong>external</strong> = anything else).
           </p>
           <p>
-            Three sub-scores: <strong>Coverage</strong> (how much of the
-            crawled set is reachable from the seed),{" "}
-            <strong>Distribution</strong> (orphan + concentration penalty),{" "}
-            <strong>Health</strong> (broken + noindex + depth penalty).
+            Every unique destination is then live-pinged so broken targets are
+            flagged. Responses are paginated at 500 links per call — use{" "}
+            <code>offset</code> to walk further into a large page.
           </p>
         </>
       }
       params={[
-        { name: "url", type: "string", required: "yes", description: "Seed URL — crawl stays on this origin." },
-        { name: "maxPages", type: "number", required: "no", description: "5–50, default 30. Hits the cap → truncated:true." },
-        { name: "fresh", type: "boolean", required: "no", description: "Bypass cache." },
+        { name: "url", type: "string", required: "yes", description: "The single page to extract links from." },
+        { name: "offset", type: "number", required: "no", description: "0-indexed start of the slice. Default 0." },
+        { name: "limit", type: "number", required: "no", description: "Slice size, max 500. Default 500." },
+        { name: "fresh", type: "boolean", required: "no", description: "Bypass cache and re-fetch the page." },
       ]}
       responseFields={[
-        { name: "graph.nodes[]", type: "LinkNode[]", required: "yes", description: "url, inboundCount, outboundCount, depth, isOrphan, noindex, status, title." },
-        { name: "graph.edgeCount", type: "number", required: "yes", description: "Total internal edges between crawled pages." },
-        { name: "hubs[]", type: "{url,inboundCount}[]", required: "yes", description: "Top 10 by inbound count." },
-        { name: "orphans[]", type: "string[]", required: "yes", description: "Pages with zero inbound (excluding the seed)." },
-        { name: "deepPages[]", type: "{url,depth}[]", required: "yes", description: "Pages at depth ≥4 from the seed." },
-        { name: "brokenLinks[]", type: "{url,status}[]", required: "yes", description: "Pages that returned 4xx/5xx or no response." },
-        { name: "scores.overall", type: "0–100", required: "yes", description: "Coverage 35% · Distribution 40% · Health 25%." },
+        { name: "pageUrl", type: "string", required: "yes", description: "Final URL of the fetched page (after redirects)." },
+        { name: "baseHost", type: "string", required: "yes", description: "Registrable host used for internal vs external bucketing." },
+        { name: "totals.all", type: "SectionCounts", required: "yes", description: "Aggregate counts: total, internal, external, broken." },
+        { name: "totals.navbar / footer / body", type: "SectionCounts", required: "yes", description: "Same counts scoped to each page section." },
+        { name: "page.offset / limit / total", type: "number", required: "yes", description: "Pagination cursor for the returned slice." },
+        { name: "page.links[]", type: "ExtractedLink[]", required: "yes", description: "url, href, text, section, scope, rel, status, broken." },
       ]}
       responseSample={responseSample}
       samples={samples}
