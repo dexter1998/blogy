@@ -116,7 +116,10 @@ export function PageSpeedTool() {
       />
 
       {activeResult && (
-        <div ref={resultsRef} className="container mx-auto w-full max-w-full min-w-0 overflow-x-hidden px-4 py-10 sm:px-6 lg:px-8">
+        <div
+          ref={resultsRef}
+          className="container w-full min-w-0 overflow-x-hidden py-10"
+        >
           <Dashboard result={activeResult} />
         </div>
       )}
@@ -147,7 +150,7 @@ function Hero({
 }) {
   return (
     <section className="border-b border-app bg-gradient-to-b from-[rgb(var(--muted))] to-transparent">
-      <div className="container mx-auto w-full max-w-full min-w-0 overflow-x-hidden px-4 py-12 sm:px-6 lg:px-8 lg:py-16">
+      <div className="container w-full min-w-0 overflow-x-hidden py-12 lg:py-16">
         <div className="mb-6 flex items-center gap-2 text-sm text-muted-fg">
           <Link href="/tools" className="hover:text-fg">
             Tools
@@ -156,7 +159,7 @@ function Hero({
           <span className="text-fg">PageSpeed Checker</span>
         </div>
 
-        <div className="grid items-center gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,440px)]">
+        <div className="grid items-center gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,420px)] lg:gap-16">
           {/* Left: heading + form */}
           <div>
             <Badge tone="accent">Performance · Core Web Vitals</Badge>
@@ -217,6 +220,85 @@ function Hero({
 
 // ── Device Scanner ──────────────────────────────────────────────────────────
 
+// Screenshot service chain. Many sites (billingbee.co, cwstechnology.com,
+// anything behind Cloudflare bot-protection) defeat one provider but not the
+// next. We try them in order via <img onError> fallback.
+//
+// 1. mshots (WordPress.com, free, very reliable, accepts ?w=)
+// 2. thum.io (no-key proxy, sometimes renders sites mshots can't)
+// 3. custom placeholder card (favicon + hostname)
+function shotUrls(url: string, width: number): string[] {
+  if (!url) return [];
+  const clean = url.replace(/^https?:\/\//i, "").replace(/\/$/, "");
+  return [
+    `https://s.wordpress.com/mshots/v1/${encodeURIComponent("https://" + clean)}?w=${width}`,
+    `https://image.thum.io/get/width/${width}/noanimate/wait/3/https://${clean}`,
+  ];
+}
+
+function hostnameOf(url: string): string {
+  if (!url) return "";
+  try {
+    return new URL(url.startsWith("http") ? url : `https://${url}`).hostname;
+  } catch {
+    return url.replace(/^https?:\/\//i, "").split("/")[0] || "";
+  }
+}
+
+/**
+ * Renders a screenshot through a chain of providers. Falls back to a
+ * favicon + hostname card when every provider fails.
+ */
+function SiteShot({ url, width }: { url: string; width: number }) {
+  const sources = useMemo(() => shotUrls(url, width), [url, width]);
+  const [idx, setIdx] = useState(0);
+  // Reset the chain whenever the URL changes.
+  useEffect(() => {
+    setIdx(0);
+  }, [url]);
+
+  if (!url) return <VectorPlaceholder />;
+  if (idx >= sources.length) return <FaviconPlaceholder url={url} />;
+
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      key={sources[idx]}
+      src={sources[idx]}
+      alt="Live preview"
+      className="block h-full w-full object-cover object-top"
+      loading="lazy"
+      referrerPolicy="no-referrer"
+      onError={() => setIdx((i) => i + 1)}
+    />
+  );
+}
+
+function FaviconPlaceholder({ url }: { url: string }) {
+  const host = hostnameOf(url);
+  if (!host) return <VectorPlaceholder />;
+  // Google's s2 favicon service is reliable and doesn't need an API key.
+  const favicon = `https://www.google.com/s2/favicons?sz=128&domain=${host}`;
+  return (
+    <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-gradient-to-br from-zinc-50 to-zinc-100 px-4 text-center dark:from-zinc-900 dark:to-zinc-950">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={favicon}
+        alt=""
+        className="h-10 w-10 rounded-lg shadow-sm"
+        loading="lazy"
+        referrerPolicy="no-referrer"
+      />
+      <div className="text-[11px] font-medium leading-tight text-zinc-700 dark:text-zinc-300">
+        {host}
+      </div>
+      <div className="text-[10px] leading-tight text-zinc-400">
+        Live preview unavailable
+      </div>
+    </div>
+  );
+}
+
 function DeviceScanner({
   url,
   device,
@@ -229,16 +311,16 @@ function DeviceScanner({
   scanning: boolean;
 }) {
   return (
-    <div className="w-full max-w-sm">
-      <div className="flex justify-center">
-        {device === "mobile" ? (
-          <PhoneMockup url={url} scanning={scanning} />
-        ) : (
-          <LaptopMockup url={url} scanning={scanning} />
-        )}
+    <div className="w-full max-w-[420px]">
+      {/* Single phone-shaped mockup. Matches the reference screenshot
+          composition — one tall device on the right, with the device tab
+          control sitting underneath. */}
+      <div className="flex items-end justify-center">
+        <PhoneMockup url={url} scanning={scanning} />
       </div>
 
-      <div className="mt-4 flex items-center justify-center gap-1 rounded-full border border-app bg-card p-1 text-xs">
+      {/* Tab control — switches the dashboard results below. */}
+      <div className="mx-auto mt-6 flex max-w-[260px] items-center justify-center gap-1 rounded-full border border-app bg-card p-1 text-xs">
         <button
           type="button"
           onClick={() => setDevice("mobile")}
@@ -287,58 +369,37 @@ function ScanningOverlay({ active }: { active: boolean }) {
   );
 }
 
-function PhoneMockup({ url, scanning }: { url: string; scanning: boolean }) {
+function VectorPlaceholder() {
   return (
-    <div className="mx-auto w-[200px]">
-      <div className="relative aspect-[9/19] rounded-[1.8rem] border-[8px] border-zinc-900 bg-zinc-900 shadow-[0_24px_60px_-20px_rgba(108,70,255,0.35)] dark:border-zinc-800">
-        {/* Notch */}
-        <div className="absolute left-1/2 top-1 z-10 h-3.5 w-16 -translate-x-1/2 rounded-b-xl bg-zinc-900 dark:bg-zinc-950" />
-        <div className="relative h-full w-full overflow-hidden rounded-[1.2rem] bg-white">
-          <iframe
-            src={url}
-            title="Mobile preview"
-            className="block h-full w-full border-0"
-            // sandbox cannot be empty (would block everything) but we want a
-            // safe-by-default preview. allow-scripts so JS-rendered pages
-            // show, allow-same-origin so they fetch their own assets.
-            sandbox="allow-scripts allow-same-origin allow-forms"
-            referrerPolicy="no-referrer"
-            loading="lazy"
-          />
-          <ScanningOverlay active={scanning} />
-        </div>
+    <div className="flex h-full w-full items-center justify-center bg-white">
+      <div className="flex flex-col items-center gap-2 text-zinc-300">
+        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <rect x="3" y="3" width="18" height="18" rx="2" />
+          <path d="M3 16l5-5 4 4 3-3 6 6" />
+          <circle cx="9" cy="9" r="1.5" />
+        </svg>
       </div>
     </div>
   );
 }
 
-function LaptopMockup({ url, scanning }: { url: string; scanning: boolean }) {
+function PhoneMockup({
+  url,
+  scanning,
+}: {
+  url: string;
+  scanning: boolean;
+}) {
   return (
-    <div className="mx-auto w-full max-w-[340px]">
-      <div className="relative rounded-t-xl border border-zinc-800 bg-zinc-900 p-1.5 shadow-[0_24px_60px_-20px_rgba(108,70,255,0.35)]">
-        <div className="mb-1.5 flex items-center gap-1 px-1">
-          <span className="h-2 w-2 rounded-full bg-rose-500/90" />
-          <span className="h-2 w-2 rounded-full bg-amber-400/90" />
-          <span className="h-2 w-2 rounded-full bg-emerald-500/90" />
-          <div className="ml-2 flex-1 truncate rounded-md bg-zinc-800 px-2 py-0.5 text-[9px] text-zinc-400">
-            {url || "https://example.com"}
-          </div>
-        </div>
-        <div className="relative aspect-[16/10] overflow-hidden rounded-md bg-white">
-          <iframe
-            src={url}
-            title="Desktop preview"
-            className="block h-full w-full border-0"
-            sandbox="allow-scripts allow-same-origin allow-forms"
-            referrerPolicy="no-referrer"
-            loading="lazy"
-          />
+    <div className="relative w-[260px] shrink-0 sm:w-[300px]">
+      <div className="relative aspect-[9/19] rounded-[2.4rem] border-[5px] border-zinc-200 bg-zinc-100 p-2 shadow-[0_30px_80px_-25px_rgba(108,70,255,0.45)] dark:border-zinc-700 dark:bg-zinc-800">
+        {/* Dynamic island / notch */}
+        <div className="absolute left-1/2 top-3 z-10 h-5 w-20 -translate-x-1/2 rounded-full bg-zinc-900" />
+        <div className="relative h-full w-full overflow-hidden rounded-[1.7rem] bg-white">
+          <SiteShot url={url} width={360} />
           <ScanningOverlay active={scanning} />
         </div>
       </div>
-      {/* Laptop base */}
-      <div className="mx-auto h-1.5 w-[110%] -translate-x-[5%] rounded-b-xl bg-zinc-800" />
-      <div className="mx-auto h-1 w-[60%] rounded-b-xl bg-zinc-700/70" />
     </div>
   );
 }
