@@ -221,6 +221,56 @@ export type HostingSignals = {
   evidence: Array<{ provider: string; via: string; sample: string }>;
 };
 
+export type NetworkSignals = {
+  /** First A record (server IP). Null if DNS lookup fails. */
+  serverIp: string | null;
+  /** All A records returned. */
+  allIps: string[];
+  /** Authoritative NS records. */
+  dnsServers: string[];
+  spf: {
+    present: boolean;
+    /** Raw v=spf1 TXT lines, exactly as published. */
+    records: string[];
+  };
+  dmarc: {
+    present: boolean;
+    /** Raw v=DMARC1 TXT lines from _dmarc.<domain>. */
+    records: string[];
+  };
+  /** All TXT records at the root, for transparency / debugging. */
+  txtRecords: string[];
+};
+
+export type PixelEvidence = {
+  name:
+    | "Meta Pixel"
+    | "Google Ads"
+    | "LinkedIn Insight"
+    | "X Pixel"
+    | "Pinterest Tag"
+    | "TikTok Pixel"
+    | "Reddit Pixel";
+  /** Pixel/conversion ID when recoverable from inline script. */
+  id: string | null;
+};
+
+export type PixelSignals = {
+  count: number;
+  detected: PixelEvidence[];
+  facebookPixelDetected: boolean;
+  facebookPixelId: string | null;
+};
+
+export type YouTubeSignals = {
+  linked: boolean;
+  channelUrl: string | null;
+  subscribers: number | null;
+  subscribersText: string | null;
+  totalViews: number | null;
+  totalViewsText: string | null;
+};
+
 export type TrustSignals = {
   hasContactPage: boolean;
   hasAboutPage: boolean;
@@ -267,6 +317,9 @@ export type WebsiteIntelligenceResult = {
     cms: CMSSignals;
     hosting: HostingSignals;
     trust: TrustSignals;
+    network: NetworkSignals;
+    pixels: PixelSignals;
+    youtube: YouTubeSignals;
   };
   /** High-level totals indexed by signal name; UI uses this to render
    * the table-of-contents accordion. */

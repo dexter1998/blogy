@@ -36,6 +36,9 @@ import { extractAds } from "./extractors/ads";
 import { extractCMS } from "./extractors/cms";
 import { extractHosting } from "./extractors/hosting";
 import { extractTrust } from "./extractors/trust";
+import { extractNetwork } from "./extractors/network";
+import { extractPixels } from "./extractors/pixels";
+import { extractYouTube } from "./extractors/youtube";
 import type {
   WebsiteIntelligenceInput,
   WebsiteIntelligenceResult,
@@ -72,9 +75,13 @@ export const websiteIntelligenceScraper: Scraper<
       );
     }
 
-    // AI readiness fetches /llms.txt over the wire — run it in parallel with
-    // the synchronous extractors to keep p50 down.
-    const [aiReadiness] = await Promise.all([extractAIReadiness(ctx)]);
+    // Network + youtube + ai-readiness are async (network calls). Run them
+    // in parallel with the synchronous extractors to keep p50 down.
+    const [aiReadiness, network, youtube] = await Promise.all([
+      extractAIReadiness(ctx),
+      extractNetwork(ctx),
+      extractYouTube(ctx),
+    ]);
 
     const brand = extractBrand(ctx);
     const metadata = extractMetadata(ctx);
@@ -97,6 +104,7 @@ export const websiteIntelligenceScraper: Scraper<
     const cms = extractCMS(ctx);
     const hosting = extractHosting(ctx);
     const trust = extractTrust(ctx);
+    const pixels = extractPixels(ctx);
 
     const totals: WebsiteIntelligenceResult["totals"] = [
       { key: "brand", label: "Brand", total: countTrue(brand) },
@@ -150,6 +158,9 @@ export const websiteIntelligenceScraper: Scraper<
       { key: "cms", label: "CMS", total: cms.cms ? 1 : 0 },
       { key: "hosting", label: "Hosting & Infra", total: (hosting.hosting ? 1 : 0) + (hosting.cdn ? 1 : 0) },
       { key: "trust", label: "Trust Signals", total: trustScore(trust) },
+      { key: "network", label: "Network", total: (network.serverIp ? 1 : 0) + network.dnsServers.length + (network.spf.present ? 1 : 0) + (network.dmarc.present ? 1 : 0) },
+      { key: "pixels", label: "Marketing Pixels", total: pixels.count },
+      { key: "youtube", label: "YouTube", total: youtube.subscribers ?? 0 },
     ];
 
     return {
@@ -183,6 +194,9 @@ export const websiteIntelligenceScraper: Scraper<
         cms,
         hosting,
         trust,
+        network,
+        pixels,
+        youtube,
       },
       totals,
     };
