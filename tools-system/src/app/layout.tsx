@@ -27,10 +27,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className="min-h-screen flex flex-col bg-app text-fg">
+      <body className="min-h-screen flex flex-col bg-app text-fg overflow-x-hidden">
         <ThemeProvider>
           <Navbar />
-          <main className="flex-1">{children}</main>
+          <main className="flex-1 w-full max-w-full min-w-0 overflow-x-hidden">{children}</main>
           <Footer />
         </ThemeProvider>
       </body>

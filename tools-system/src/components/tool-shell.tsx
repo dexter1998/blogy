@@ -25,7 +25,7 @@ export function ToolShell({
   children: ReactNode;
 }) {
   return (
-    <div className="container py-10">
+    <div className="container w-full max-w-full min-w-0 overflow-x-hidden py-10">
       <div className="mb-6 flex items-center gap-2 text-sm text-muted-fg">
         <Link href="/tools" className="hover:text-fg">
           Tools
@@ -40,8 +40,11 @@ export function ToolShell({
         <p className="mt-2 text-muted-fg">{tool.description}</p>
       </header>
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
-        <div>{children}</div>
+      {/* `min-w-0` on the children track is the critical fix: without it,
+          a wide child (long URL, JSON pre, table) expands the `1fr` track
+          beyond its column and pushes the entire page sideways. */}
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="min-w-0 max-w-full">{children}</div>
 
         <aside className="space-y-4">
           <Card>

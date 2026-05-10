@@ -7,15 +7,19 @@ import { SerpForm } from "./serp-form";
 const tool = getTool("serp-checker")!;
 
 export const metadata: Metadata = {
-  title: "SERP Checker — Real Search Results & Intent Classifier",
+  title: "SERP Checker — Multi-Engine Top Ranking Pages (Google, Bing, Yahoo, DuckDuckGo)",
   description:
-    "Get real, structured search results for any query. DuckDuckGo + Bing fallback. Returns positions, snippets, related searches, intent classification, and domain mix.",
+    "Pull top ranking pages, featured snippets, PAA, ads and rich blocks across Google, Bing, Yahoo and DuckDuckGo with country-level geo targeting. Normalized output, engine-specific parsers, transparent scoring.",
   alternates: { canonical: "/tools/serp-checker" },
 };
 
 const exampleCurl = `curl -X POST ${env.siteUrl}/api/v1/serp \\
   -H "Content-Type: application/json" \\
-  -d '{"query": "best react ui library"}'`;
+  -d '{
+    "query": "best react ui library",
+    "country": "US",
+    "engines": ["google", "bing", "yahoo", "duckduckgo"]
+  }'`;
 
 export default function Page() {
   return (
@@ -23,10 +27,11 @@ export default function Page() {
       tool={tool}
       badge="Research · SERP"
       howItWorks={[
-        "Queries DuckDuckGo HTML SERP first (no key needed)",
-        "Falls back to Bing HTML if DDG returns nothing",
-        "Classifies intent from the SERP result mix",
-        "Reports domain diversity and related searches",
+        "Fans out the query across Google, Bing, Yahoo and DuckDuckGo in parallel",
+        "Country-aware: localized SERPs via per-engine geo params (gl, cc, kl, host)",
+        "Engine-specific parsers feed a single normalized result schema",
+        "Merged ranking blends positions across engines; per-engine output preserved",
+        "Captures featured snippets, PAA, ads, videos and related searches",
       ]}
       exampleCurl={exampleCurl}
     >
