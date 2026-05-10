@@ -26,4 +26,9 @@ export const env = {
    * key; override per-deployment via WHOISXML_API_KEY. */
   whoisXmlApiKey:
     process.env.WHOISXML_API_KEY ?? "at_DJhUcyzVkd6WQXcein2S4y3erx5oZ",
+  /** Google PageSpeed Insights v5 API key. Without a key PSI is rate-limited
+   * to a handful of requests per minute per IP — quickly exhausted by a public
+   * tool. Override via PAGESPEED_API_KEY. */
+  pageSpeedApiKey:
+    process.env.PAGESPEED_API_KEY ?? "AIzaSyC0acdAOKoMmMIdWYDQL-YD9KQd-q6Vrx4",
 };

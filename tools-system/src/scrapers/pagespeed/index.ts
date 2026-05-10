@@ -2,13 +2,16 @@
  * PageSpeed scraper.
  *
  * Source: Google PageSpeed Insights API v5 — public, works without an
- * API key for low volumes. If PAGESPEED_API_KEY is set in the environment
- * it's appended for higher quotas.
+ * API key for low volumes. PAGESPEED_API_KEY is appended for higher quotas.
  *
  * We deliberately use the official PSI endpoint instead of running
  * Lighthouse ourselves: PSI gives us the same Lighthouse score Google
- * itself shows, plus CrUX field data (real user metrics). That's the
- * "real-world accuracy" the spec asks for.
+ * itself shows, plus CrUX field data (real user metrics).
+ *
+ * The scraper requests all four Lighthouse categories (performance, seo,
+ * accessibility, best-practices) and surfaces per-category audit buckets
+ * (failing / passed / manual / not-applicable) so the UI can render a
+ * Seobility-style full audit dashboard.
  */
 
 import { env } from "@/lib/env";
@@ -16,9 +19,36 @@ import type { Scraper, ScrapeContext } from "@/scrapers/base/scraper";
 import { ScrapeError } from "@/scrapers/base/scraper";
 import { httpGet } from "@/scrapers/_shared/http";
 import { scorePageSpeed } from "@/scoring/pagespeed";
-import type { CoreWebVital, PageSpeedInput, PageSpeedResult } from "./types";
+import type {
+  AuditBuckets,
+  AuditEntry,
+  CoreWebVital,
+  PageSpeedInput,
+  PageSpeedResult,
+} from "./types";
 
 const PSI_ENDPOINT = "https://www.googleapis.com/pagespeedonline/v5/runPagespeed";
+
+type LhAudit = {
+  id?: string;
+  title?: string;
+  description?: string;
+  numericValue?: number;
+  score?: number | null;
+  scoreDisplayMode?: string;
+  displayValue?: string;
+  details?: {
+    overallSavingsMs?: number;
+    overallSavingsBytes?: number;
+  };
+};
+
+type LhCategory = {
+  id?: string;
+  title?: string;
+  score?: number | null;
+  auditRefs?: Array<{ id: string; weight?: number; group?: string }>;
+};
 
 type PsiResponse = {
   loadingExperience?: {
@@ -27,18 +57,14 @@ type PsiResponse = {
   };
   lighthouseResult?: {
     finalUrl?: string;
-    categories?: { performance?: { score: number | null } };
-    audits?: Record<
-      string,
-      {
-        id?: string;
-        title?: string;
-        description?: string;
-        numericValue?: number;
-        score?: number | null;
-        details?: { overallSavingsMs?: number };
-      }
-    >;
+    fullPageScreenshot?: { screenshot?: { data?: string } };
+    audits?: Record<string, LhAudit>;
+    categories?: {
+      performance?: LhCategory;
+      seo?: LhCategory;
+      accessibility?: LhCategory;
+      "best-practices"?: LhCategory;
+    };
   };
 };
 
@@ -120,6 +146,51 @@ function readLab(psi: PsiResponse): PageSpeedResult["lab"] {
   };
 }
 
+function toEntry(a: LhAudit | undefined): AuditEntry | null {
+  if (!a || !a.id) return null;
+  return {
+    id: a.id,
+    title: a.title ?? a.id,
+    description: (a.description ?? "").slice(0, 280),
+    score: typeof a.score === "number" ? a.score : null,
+    scoreDisplayMode: a.scoreDisplayMode ?? "binary",
+    displayValue: a.displayValue,
+    savingsMs: a.details?.overallSavingsMs,
+    savingsBytes: a.details?.overallSavingsBytes,
+  };
+}
+
+function bucketCategory(
+  cat: LhCategory | undefined,
+  audits: Record<string, LhAudit>,
+): AuditBuckets {
+  const out: AuditBuckets = { failing: [], passed: [], manual: [], notApplicable: [] };
+  if (!cat?.auditRefs) return out;
+  for (const ref of cat.auditRefs) {
+    const a = audits[ref.id];
+    const e = toEntry(a);
+    if (!e) continue;
+    const mode = e.scoreDisplayMode;
+    if (mode === "manual") out.manual.push(e);
+    else if (mode === "notApplicable") out.notApplicable.push(e);
+    else if (mode === "informative") {
+      // surface as passed (informational only)
+      out.passed.push(e);
+    } else if (e.score !== null && e.score >= 0.9) out.passed.push(e);
+    else if (e.score !== null && e.score < 0.9) out.failing.push(e);
+    else out.passed.push(e); // unknown numeric → treat as informational
+  }
+  // Stable, deterministic ordering: highest savings first for failing, alpha for passed.
+  out.failing.sort((a, b) => (b.savingsMs ?? 0) - (a.savingsMs ?? 0) || a.title.localeCompare(b.title));
+  out.passed.sort((a, b) => a.title.localeCompare(b.title));
+  return out;
+}
+
+function readScreenshot(psi: PsiResponse): string {
+  const data = psi.lighthouseResult?.fullPageScreenshot?.screenshot?.data;
+  return typeof data === "string" ? data : "";
+}
+
 export const pagespeedScraper: Scraper<PageSpeedInput, PageSpeedResult> = {
   name: "pagespeed",
   cacheTtlSeconds: env.cacheTtlSeconds,
@@ -131,16 +202,20 @@ export const pagespeedScraper: Scraper<PageSpeedInput, PageSpeedResult> = {
 
   async execute(input, _ctx: ScrapeContext): Promise<PageSpeedResult> {
     const strategy = input.strategy ?? "mobile";
-    const params = new URLSearchParams({
-      url: input.url,
-      strategy,
-      category: "performance",
-    });
-    const apiKey = process.env.PAGESPEED_API_KEY;
+    // PSI accepts repeated `category` query params; URLSearchParams.append
+    // handles that correctly. Asking for all four expands the response by
+    // ~3x but unlocks the Seobility-style full audit dashboard.
+    const params = new URLSearchParams();
+    params.set("url", input.url);
+    params.set("strategy", strategy);
+    for (const cat of ["performance", "seo", "accessibility", "best-practices"]) {
+      params.append("category", cat);
+    }
+    const apiKey = env.pageSpeedApiKey;
     if (apiKey) params.set("key", apiKey);
 
     const res = await httpGet(`${PSI_ENDPOINT}?${params.toString()}`, {
-      timeoutMs: 30_000,
+      timeoutMs: 60_000,
     });
     if (!res.ok) {
       throw new ScrapeError("scrape_failed", `PSI request failed: ${res.message}`);
@@ -154,14 +229,32 @@ export const pagespeedScraper: Scraper<PageSpeedInput, PageSpeedResult> = {
 
     const field = readField(psi);
     const lab = readLab(psi);
+    const audits = psi.lighthouseResult?.audits ?? {};
+    const cats = psi.lighthouseResult?.categories ?? {};
+
+    const pct = (s: number | null | undefined): number | null =>
+      typeof s === "number" ? Math.round(s * 100) : null;
 
     const result: PageSpeedResult = {
       url: input.url,
       finalUrl: psi.lighthouseResult?.finalUrl ?? input.url,
       strategy,
       fetchedAt: new Date().toISOString(),
+      screenshot: readScreenshot(psi),
       field,
       lab,
+      categories: {
+        performance: pct(cats.performance?.score),
+        seo: pct(cats.seo?.score),
+        accessibility: pct(cats.accessibility?.score),
+        bestPractices: pct(cats["best-practices"]?.score),
+      },
+      audits: {
+        performance: bucketCategory(cats.performance, audits),
+        seo: bucketCategory(cats.seo, audits),
+        accessibility: bucketCategory(cats.accessibility, audits),
+        bestPractices: bucketCategory(cats["best-practices"], audits),
+      },
       scores: { overall: 0, performance: 0, cwv: 0 },
       source: "psi-v5",
     };

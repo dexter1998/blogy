@@ -11,8 +11,8 @@ export const metadata: Metadata = {
 };
 
 const CATEGORY_ORDER: Array<
-  "SEO" | "Content" | "Research" | "Technical" | "AI" | "Performance"
-> = ["SEO", "Technical", "Content", "Research", "Performance", "AI"];
+  "SEO" | "Content" | "Research" | "Technical" | "AI" | "Performance" | "Intelligence"
+> = ["Intelligence", "SEO", "Technical", "Content", "Research", "Performance", "AI"];
 
 const METHOD_TONE: Record<string, string> = {
   GET: "bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300",
