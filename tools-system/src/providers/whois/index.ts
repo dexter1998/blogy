@@ -11,6 +11,7 @@
 import { runWithFallback, type Provider, type ProviderResult } from "@/providers/types";
 import { cache } from "@/lib/cache";
 import { fetchRdap, type RdapInput } from "./rdap";
+import { fetchWhoisXml } from "./whoisxml";
 import { nativeWhois } from "./native-whois";
 import { normalizeDomain } from "@/lib/validation/domain";
 import type { RdapRecord, WhoisRecord } from "./types";
@@ -21,10 +22,13 @@ const CACHE_TTL = 24 * 60 * 60;
 
 // ─── Rich RDAP lookup ──────────────────────────────────────────────────────
 
+export type LookupSource = "rdap" | "whoisxml" | "cache";
+
 export type LookupRdapResult = {
-  source: "rdap" | "cache";
+  source: LookupSource;
   data: RdapRecord | null;
   error?: string;
+  attempted: string[];
 };
 
 export async function lookupRdap(
@@ -39,23 +43,43 @@ export async function lookupRdap(
   }
 
   const key = `rdap:lookup:${resolved.domain}`;
-  const hit = await cache.get<RdapRecord>(key);
-  if (hit) return { source: "cache", data: hit };
+  const hit = await cache.get<{ source: LookupSource; data: RdapRecord }>(key);
+  if (hit) return { source: "cache", data: hit.data, attempted: ["cache"] };
 
+  const attempted: string[] = [];
+  let lastError: string | undefined;
+
+  // 1. RDAP (primary)
+  attempted.push("rdap");
   try {
     const rec = await fetchRdap(resolved);
     if (rec) {
-      await cache.set(key, rec, CACHE_TTL);
-      return { source: "rdap", data: rec };
+      await cache.set(key, { source: "rdap", data: rec }, CACHE_TTL);
+      return { source: "rdap", data: rec, attempted };
     }
-    return { source: "rdap", data: null, error: "no_record" };
+    lastError = "rdap_no_record";
   } catch (e) {
-    return {
-      source: "rdap",
-      data: null,
-      error: e instanceof Error ? e.message : "rdap_failed",
-    };
+    lastError = e instanceof Error ? e.message : "rdap_failed";
   }
+
+  // 2. WhoisXML (fallback)
+  attempted.push("whoisxml");
+  try {
+    const rec = await fetchWhoisXml(resolved);
+    if (rec) {
+      await cache.set(key, { source: "whoisxml", data: rec }, CACHE_TTL);
+      return { source: "whoisxml", data: rec, attempted };
+    }
+  } catch (e) {
+    lastError = e instanceof Error ? e.message : "whoisxml_failed";
+  }
+
+  return {
+    source: "rdap",
+    data: null,
+    error: lastError ?? "no_record",
+    attempted,
+  };
 }
 
 // ─── Legacy compact WHOIS (kept for DA-PA scorer) ──────────────────────────

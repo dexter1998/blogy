@@ -28,10 +28,66 @@ function formatDate(iso: string | null): string | null {
   return d.toISOString().slice(0, 10) + "  ·  " + d.toUTCString().slice(5, 16);
 }
 
-function formatAge(days: number | null, years: number | null): string | null {
-  if (days == null || years == null) return null;
-  if (days < 0) return `expires in ${Math.abs(days).toLocaleString()} days`;
-  return `${years} years  ·  ${days.toLocaleString()} days`;
+/**
+ * Convert a day count into a humanized "Y years M months D days" string.
+ *  - Drops zero leading parts.
+ *  - When the duration is ≥1 year, suppresses the day count (too noisy).
+ *  - Pluralizes correctly. Returns "today" / "1 day" for tiny durations.
+ *  - Compact mode keeps it short for stat cards: "15y 6mo", "186d", "3mo 20d".
+ */
+function humanizeDays(days: number, opts: { compact?: boolean } = {}): string {
+  const abs = Math.abs(days);
+  if (abs === 0) return "today";
+  if (abs < 30) {
+    return opts.compact ? `${abs}d` : `${abs} ${abs === 1 ? "day" : "days"}`;
+  }
+
+  let years = Math.floor(abs / 365.25);
+  const remAfterYears = abs - Math.floor(years * 365.25);
+  let months = Math.floor(remAfterYears / 30.4375);
+  let dayRem = Math.round(remAfterYears - months * 30.4375);
+
+  // Roll-up: if remainder days hit a full month, promote them.
+  if (dayRem >= 30) {
+    months += 1;
+    dayRem = 0;
+  }
+  // 12 months → 1 year.
+  if (months >= 12) {
+    years += Math.floor(months / 12);
+    months = months % 12;
+  }
+
+  const parts: string[] = [];
+  if (years > 0) {
+    parts.push(opts.compact ? `${years}y` : `${years} ${years === 1 ? "year" : "years"}`);
+  }
+  if (months > 0) {
+    parts.push(
+      opts.compact ? `${months}mo` : `${months} ${months === 1 ? "month" : "months"}`,
+    );
+  }
+  // Days only matter when there's no year component (per UX spec).
+  if (years === 0 && dayRem > 0) {
+    parts.push(opts.compact ? `${dayRem}d` : `${dayRem} ${dayRem === 1 ? "day" : "days"}`);
+  }
+  // Edge case: everything rounded to zero — fall back to raw days.
+  if (parts.length === 0) {
+    parts.push(opts.compact ? `${abs}d` : `${abs} days`);
+  }
+  return parts.join(" ");
+}
+
+function formatAge(days: number | null): string | null {
+  if (days == null) return null;
+  return humanizeDays(days);
+}
+
+function formatExpiry(daysUntil: number | null): string | null {
+  if (daysUntil == null) return null;
+  if (daysUntil < 0) return `expired ${humanizeDays(Math.abs(daysUntil))} ago`;
+  if (daysUntil === 0) return "expires today";
+  return `${humanizeDays(daysUntil)} remaining`;
 }
 
 function expiryTone(days: number | null): "good" | "warn" | "bad" | "neutral" {
@@ -66,7 +122,7 @@ function buildRows(r: WhoisLookupResult): FieldRow[] {
     {
       key: "age",
       label: "Domain Age",
-      value: formatAge(r.age.days, r.age.years),
+      value: formatAge(r.age.days),
       info: "Time since first registration. Computed locally from the registration event — older domains tend to carry more topical authority and link equity.",
       tone: r.age.years != null && r.age.years > 5 ? "good" : "neutral",
     },
@@ -85,12 +141,9 @@ function buildRows(r: WhoisLookupResult): FieldRow[] {
     },
     {
       key: "daysUntilExpiry",
-      label: "Days Until Expiry",
-      value:
-        r.age.daysUntilExpiry == null
-          ? null
-          : `${r.age.daysUntilExpiry.toLocaleString()} days`,
-      info: "Countdown to the registry's expiration event. Negative means the domain has already passed its expiry and is in redemption / pending-delete.",
+      label: "Time Until Expiry",
+      value: formatExpiry(r.age.daysUntilExpiry),
+      info: "Countdown to the registry's expiration event. \"Expired N ago\" means the domain has already passed its expiry and is in redemption / pending-delete.",
       tone: expiryTone(r.age.daysUntilExpiry),
     },
     {
@@ -316,13 +369,11 @@ export function WhoisForm() {
           <Stat
             label="Domain Age"
             value={
-              result.age.years != null
-                ? `${result.age.years}y`
-                : "—"
+              result.age.days != null ? humanizeDays(result.age.days, { compact: true }) : "—"
             }
             hint={
-              result.age.days != null
-                ? `${result.age.days.toLocaleString()} days`
+              result.registrationDate
+                ? `since ${result.registrationDate.slice(0, 10)}`
                 : undefined
             }
             tone={result.age.years != null && result.age.years > 5 ? "good" : "neutral"}
@@ -330,9 +381,14 @@ export function WhoisForm() {
           <Stat
             label="Expires In"
             value={
-              result.age.daysUntilExpiry != null
-                ? `${result.age.daysUntilExpiry.toLocaleString()}d`
-                : "—"
+              result.age.daysUntilExpiry == null
+                ? "—"
+                : result.age.daysUntilExpiry < 0
+                  ? "expired"
+                  : humanizeDays(result.age.daysUntilExpiry, { compact: true })
+            }
+            hint={
+              result.expiryDate ? `on ${result.expiryDate.slice(0, 10)}` : undefined
             }
             tone={expiryTone(result.age.daysUntilExpiry)}
           />
@@ -357,7 +413,12 @@ export function WhoisForm() {
                 Registration record
               </h3>
               {result.cached && <Badge>cached</Badge>}
-              {!result.cached && result.success && <Badge tone="good">live</Badge>}
+              {!result.cached && result.success && result.source === "rdap" && (
+                <Badge tone="good">live · rdap</Badge>
+              )}
+              {!result.cached && result.success && result.source === "whoisxml" && (
+                <Badge tone="warn">live · whoisxml fallback</Badge>
+              )}
               {!result.success && <Badge tone="bad">no record</Badge>}
               {result.timings && (
                 <span className="text-xs text-muted-fg">

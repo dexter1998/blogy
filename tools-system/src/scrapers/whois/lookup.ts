@@ -20,8 +20,10 @@ export type WhoisLookupResult = {
   tld: string;
 
   fetchedAt: string;
-  /** "rdap" on a fresh hit, "cache" on a cache hit, null on miss. */
-  source: "rdap" | "cache" | null;
+  /** Where the answer came from on this call. */
+  source: "rdap" | "whoisxml" | "cache" | null;
+  /** Provider chain attempted in order, useful for debugging. */
+  attempted: string[];
   cached: boolean;
 
   rdapServer: string | null;
@@ -81,6 +83,7 @@ export const whoisLookupScraper: Scraper<WhoisInput, WhoisLookupResult> = {
         tld: norm.tld,
         fetchedAt,
         source: null,
+        attempted: result.attempted,
         cached: false,
         rdapServer: null,
         registrationDate: null,
@@ -109,6 +112,7 @@ export const whoisLookupScraper: Scraper<WhoisInput, WhoisLookupResult> = {
       tld: r.tld,
       fetchedAt,
       source: result.source,
+      attempted: result.attempted,
       cached: result.source === "cache",
       rdapServer: r.rdapServer,
       registrationDate: r.registrationDate,

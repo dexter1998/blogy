@@ -21,4 +21,9 @@ export const env = {
   /** Optional. Free key from openpagerank.com — when set, used as a corroborating
    * signal for the authority axis. Pipeline degrades gracefully when missing. */
   openPageRankApiKey: process.env.OPR_API_KEY ?? "",
+  /** Optional. WhoisXML API key — used as a fallback for the WHOIS/RDAP tool
+   * when RDAP returns no record (some legacy ccTLDs). Default is a free-tier
+   * key; override per-deployment via WHOISXML_API_KEY. */
+  whoisXmlApiKey:
+    process.env.WHOISXML_API_KEY ?? "at_DJhUcyzVkd6WQXcein2S4y3erx5oZ",
 };
