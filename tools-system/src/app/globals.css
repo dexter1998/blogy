@@ -1,0 +1,77 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: 255 255 255;
+  --fg: 17 17 19;
+  --muted: 245 245 247;
+  --muted-fg: 100 100 110;
+  --border: 232 232 236;
+  --card: 255 255 255;
+  --accent: 108 70 255;
+}
+
+.dark {
+  --bg: 10 10 13;
+  --fg: 240 240 245;
+  --muted: 22 22 28;
+  --muted-fg: 150 150 160;
+  --border: 38 38 44;
+  --card: 18 18 22;
+  --accent: 156 130 255;
+}
+
+html,
+body {
+  background: rgb(var(--bg));
+  color: rgb(var(--fg));
+  font-feature-settings: "cv11", "ss01";
+  -webkit-font-smoothing: antialiased;
+}
+
+@layer utilities {
+  .bg-app {
+    background-color: rgb(var(--bg));
+  }
+  .bg-card {
+    background-color: rgb(var(--card));
+  }
+  .bg-muted {
+    background-color: rgb(var(--muted));
+  }
+  .text-fg {
+    color: rgb(var(--fg));
+  }
+  .text-muted-fg {
+    color: rgb(var(--muted-fg));
+  }
+  .border-app {
+    border-color: rgb(var(--border));
+  }
+  .ring-accent {
+    --tw-ring-color: rgb(var(--accent));
+  }
+  .text-accent {
+    color: rgb(var(--accent));
+  }
+  .bg-accent {
+    background-color: rgb(var(--accent));
+  }
+}
+
+.code-block {
+  background: rgb(15 15 18);
+  color: rgb(220 220 228);
+  border-radius: 0.75rem;
+  padding: 1rem 1.25rem;
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.825rem;
+  line-height: 1.55;
+  overflow-x: auto;
+  white-space: pre;
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}

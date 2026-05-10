@@ -1,0 +1,13 @@
+export const env = {
+  siteUrl: process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000",
+  apiAuthMode: (process.env.API_AUTH_MODE ?? "open") as "open" | "key",
+  apiKeys: (process.env.API_KEYS ?? "")
+    .split(",")
+    .map((k) => k.trim())
+    .filter(Boolean),
+  rateLimitPerMin: Number(process.env.RATE_LIMIT_PER_MIN ?? 30),
+  cacheTtlSeconds: Number(process.env.CACHE_TTL_SECONDS ?? 900),
+  scrapeTimeoutMs: Number(process.env.SCRAPE_TIMEOUT_MS ?? 8000),
+  scrapeUserAgent:
+    process.env.SCRAPE_USER_AGENT ?? "BlogyToolsBot/1.0 (+https://blogy.in/tools)",
+};
