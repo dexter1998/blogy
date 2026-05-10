@@ -54,7 +54,7 @@ export const tools: ToolEntry[] = [
     description:
       "Blogy-native authority readings for any domain or URL. Built from WHOIS/RDAP, DNS-over-HTTPS, robots/sitemap, on-page trust signals, schema.org, OpenPageRank, and Common Crawl footprints — no proprietary third-party SEO metrics emulated.",
     category: "SEO",
-    status: "live",
+    status: "coming-soon",
     toolPath: "/tools/da-pa-checker",
     docsPath: "/docs-api/da-pa-api",
     endpoint: "/api/v1/da-pa",
@@ -216,7 +216,7 @@ export const tools: ToolEntry[] = [
     description:
       "Discover real referring URLs from Common Crawl with optional live verification. Captures anchor text and rel attribute when verified — no paid backlink API required.",
     category: "SEO",
-    status: "live",
+    status: "coming-soon",
     toolPath: "/tools/backlinks",
     docsPath: "/docs-api/backlinks-api",
     endpoint: "/api/v1/backlinks",

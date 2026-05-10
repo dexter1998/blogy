@@ -76,10 +76,10 @@ export default function ToolsIndex() {
                             ? "good"
                             : t.status === "beta"
                               ? "accent"
-                              : "neutral"
+                              : "warn"
                         }
                       >
-                        {t.status}
+                        {t.status === "coming-soon" ? "coming soon" : t.status}
                       </Badge>
                     </div>
 
@@ -111,12 +111,21 @@ export default function ToolsIndex() {
                     </div>
 
                     <div className="mt-auto pt-4 grid grid-cols-2 gap-2">
-                      <Link
-                        href={t.toolPath}
-                        className="inline-flex h-9 items-center justify-center rounded-lg bg-accent px-3 text-xs font-semibold text-white transition hover:opacity-90"
-                      >
-                        Open tool →
-                      </Link>
+                      {t.status === "coming-soon" ? (
+                        <span
+                          aria-disabled
+                          className="inline-flex h-9 items-center justify-center rounded-lg bg-muted px-3 text-xs font-semibold text-muted-fg"
+                        >
+                          Coming soon
+                        </span>
+                      ) : (
+                        <Link
+                          href={t.toolPath}
+                          className="inline-flex h-9 items-center justify-center rounded-lg bg-accent px-3 text-xs font-semibold text-white transition hover:opacity-90"
+                        >
+                          Open tool →
+                        </Link>
+                      )}
                       <Link
                         href={`${t.docsPath}#playground`}
                         className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-app bg-card px-3 text-xs font-semibold text-fg transition hover:bg-muted"
