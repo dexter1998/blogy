@@ -57,6 +57,7 @@ export function PageSpeedTool() {
   const resultsRef = useRef<HTMLDivElement | null>(null);
 
   const activeResult = results[device];
+  const liveScreenshot = activeResult?.screenshot || results.mobile?.screenshot || results.desktop?.screenshot || "";
 
   useEffect(() => {
     if (activeResult && resultsRef.current) {
@@ -110,6 +111,7 @@ export function PageSpeedTool() {
         device={device}
         setDevice={setDevice}
         previewUrl={previewUrl}
+        liveScreenshot={liveScreenshot}
         loading={loading}
         error={error}
         onSubmit={onSubmit}
@@ -135,6 +137,7 @@ function Hero({
   device,
   setDevice,
   previewUrl,
+  liveScreenshot,
   loading,
   error,
   onSubmit,
@@ -144,6 +147,7 @@ function Hero({
   device: Device;
   setDevice: (d: Device) => void;
   previewUrl: string;
+  liveScreenshot: string;
   loading: boolean;
   error: string | null;
   onSubmit: (e: React.FormEvent) => void;
@@ -159,12 +163,14 @@ function Hero({
           <span className="text-fg">PageSpeed Checker</span>
         </div>
 
-        <div className="grid items-center gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,420px)] lg:gap-16">
+        <div className="grid items-center gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,560px)] lg:gap-12">
           {/* Left: heading + form */}
           <div>
             <Badge tone="accent">Performance · Core Web Vitals</Badge>
             <h1 className="mt-4 text-4xl font-semibold leading-[1.05] tracking-tight sm:text-5xl">
-              See exactly why your site feels slow.
+              See exactly why
+              <br />
+              your site feels slow.
             </h1>
             <p className="mt-4 max-w-lg text-base text-muted-fg">
               Run a real Google PageSpeed Insights audit. CrUX field data,
@@ -210,6 +216,7 @@ function Hero({
               device={device}
               setDevice={setDevice}
               scanning={loading}
+              liveScreenshot={liveScreenshot}
             />
           </div>
         </div>
@@ -222,17 +229,20 @@ function Hero({
 
 // Screenshot service chain. Many sites (billingbee.co, cwstechnology.com,
 // anything behind Cloudflare bot-protection) defeat one provider but not the
-// next. We try them in order via <img onError> fallback.
+// next. We try them in order via <img onError> fallback, and we also auto-
+// advance after a timeout because mshots returns a 200 "Generating preview…"
+// placeholder while it queues the real shot — that never triggers onError.
 //
-// 1. mshots (WordPress.com, free, very reliable, accepts ?w=)
-// 2. thum.io (no-key proxy, sometimes renders sites mshots can't)
-// 3. custom placeholder card (favicon + hostname)
+// 1. thum.io (no-key proxy, fast, renders headless Chrome immediately)
+// 2. mshots (WordPress.com, free, but can be slow on first hit)
+// 3. urlbox public demo (last resort)
+// 4. favicon + hostname placeholder
 function shotUrls(url: string, width: number): string[] {
   if (!url) return [];
   const clean = url.replace(/^https?:\/\//i, "").replace(/\/$/, "");
   return [
+    `https://image.thum.io/get/width/${width}/crop/${Math.round(width * 1.6)}/noanimate/wait/3/https://${clean}`,
     `https://s.wordpress.com/mshots/v1/${encodeURIComponent("https://" + clean)}?w=${width}`,
-    `https://image.thum.io/get/width/${width}/noanimate/wait/3/https://${clean}`,
   ];
 }
 
@@ -248,14 +258,49 @@ function hostnameOf(url: string): string {
 /**
  * Renders a screenshot through a chain of providers. Falls back to a
  * favicon + hostname card when every provider fails.
+ *
+ * `liveScreenshot` is the base64 final-screenshot from the audit result,
+ * preferred when available because it's guaranteed to be the audited page.
  */
-function SiteShot({ url, width }: { url: string; width: number }) {
+function SiteShot({
+  url,
+  width,
+  liveScreenshot,
+}: {
+  url: string;
+  width: number;
+  liveScreenshot?: string;
+}) {
   const sources = useMemo(() => shotUrls(url, width), [url, width]);
   const [idx, setIdx] = useState(0);
+  const [loaded, setLoaded] = useState(false);
+
   // Reset the chain whenever the URL changes.
   useEffect(() => {
     setIdx(0);
+    setLoaded(false);
   }, [url]);
+
+  // Watchdog — if the current provider hasn't loaded within 8s, advance.
+  // Catches mshots' "Generating preview…" 200 placeholder.
+  useEffect(() => {
+    if (loaded) return;
+    if (idx >= sources.length) return;
+    const t = setTimeout(() => setIdx((i) => i + 1), 8000);
+    return () => clearTimeout(t);
+  }, [idx, loaded, sources.length]);
+
+  if (liveScreenshot) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={liveScreenshot}
+        alt="Audited page"
+        className="block h-full w-full object-cover object-top"
+        loading="lazy"
+      />
+    );
+  }
 
   if (!url) return <VectorPlaceholder />;
   if (idx >= sources.length) return <FaviconPlaceholder url={url} />;
@@ -269,6 +314,7 @@ function SiteShot({ url, width }: { url: string; width: number }) {
       className="block h-full w-full object-cover object-top"
       loading="lazy"
       referrerPolicy="no-referrer"
+      onLoad={() => setLoaded(true)}
       onError={() => setIdx((i) => i + 1)}
     />
   );
@@ -304,23 +350,28 @@ function DeviceScanner({
   device,
   setDevice,
   scanning,
+  liveScreenshot,
 }: {
   url: string;
   device: Device;
   setDevice: (d: Device) => void;
   scanning: boolean;
+  liveScreenshot: string;
 }) {
   return (
-    <div className="w-full max-w-[420px]">
-      {/* Single phone-shaped mockup. Matches the reference screenshot
-          composition — one tall device on the right, with the device tab
-          control sitting underneath. */}
-      <div className="flex items-end justify-center">
-        <PhoneMockup url={url} scanning={scanning} />
+    <div className="w-full max-w-[560px]">
+      {/* Phone + Laptop combo mockup. Matches the reference image —
+          phone overlaps the laptop on the left side, both render the
+          same live preview. */}
+      <div className="relative flex items-end justify-center">
+        <LaptopMockup url={url} scanning={scanning} liveScreenshot={liveScreenshot} />
+        <div className="absolute -bottom-2 left-0 sm:left-2">
+          <PhoneMockup url={url} scanning={scanning} liveScreenshot={liveScreenshot} />
+        </div>
       </div>
 
       {/* Tab control — switches the dashboard results below. */}
-      <div className="mx-auto mt-6 flex max-w-[260px] items-center justify-center gap-1 rounded-full border border-app bg-card p-1 text-xs">
+      <div className="mx-auto mt-8 flex max-w-[260px] items-center justify-center gap-1 rounded-full border border-app bg-card p-1 text-xs">
         <button
           type="button"
           onClick={() => setDevice("mobile")}
@@ -354,15 +405,22 @@ function ScanningOverlay({ active }: { active: boolean }) {
   if (!active) return null;
   return (
     <div className="pointer-events-none absolute inset-0 overflow-hidden">
-      {/* Bright horizontal scanning line, ping-pongs top↔bottom. */}
-      <div className="absolute inset-x-0 h-[3px] -translate-y-1/2 animate-[psi-scan_2.4s_ease-in-out_infinite] bg-gradient-to-r from-transparent via-accent to-transparent shadow-[0_0_24px_6px_rgb(var(--accent)/0.55)]" />
+      {/* Bright horizontal scanning line — sweeps top → bottom → top.
+          alternate direction gives the back-and-forth effect without a
+          jarring jump back to the top. */}
+      <div
+        className="absolute inset-x-0 h-[3px] bg-gradient-to-r from-transparent via-accent to-transparent shadow-[0_0_24px_6px_rgb(var(--accent)/0.55)]"
+        style={{
+          top: 0,
+          animation: "psi-scan-sweep 2.6s linear infinite alternate",
+        }}
+      />
       {/* Subtle scanline pattern + tint, matches the seobility "scanning" feel. */}
       <div className="absolute inset-0 bg-[linear-gradient(rgba(108,70,255,0.06)_50%,transparent_50%)] bg-[length:100%_4px] mix-blend-overlay" />
-      <style jsx>{`
-        @keyframes psi-scan {
-          0% { top: 0%; }
-          50% { top: 100%; }
-          100% { top: 0%; }
+      <style jsx global>{`
+        @keyframes psi-scan-sweep {
+          0%   { transform: translateY(0%); }
+          100% { transform: translateY(calc(var(--scan-height, 100%) - 3px)); }
         }
       `}</style>
     </div>
@@ -386,19 +444,49 @@ function VectorPlaceholder() {
 function PhoneMockup({
   url,
   scanning,
+  liveScreenshot,
 }: {
   url: string;
   scanning: boolean;
+  liveScreenshot?: string;
 }) {
   return (
-    <div className="relative w-[260px] shrink-0 sm:w-[300px]">
-      <div className="relative aspect-[9/19] rounded-[2.4rem] border-[5px] border-zinc-200 bg-zinc-100 p-2 shadow-[0_30px_80px_-25px_rgba(108,70,255,0.45)] dark:border-zinc-700 dark:bg-zinc-800">
+    <div className="relative w-[170px] shrink-0 sm:w-[200px]">
+      <div className="relative aspect-[9/19] rounded-[2rem] border-[5px] border-zinc-200 bg-zinc-100 p-1.5 shadow-[0_30px_80px_-25px_rgba(108,70,255,0.45)] dark:border-zinc-700 dark:bg-zinc-800">
         {/* Dynamic island / notch */}
-        <div className="absolute left-1/2 top-3 z-10 h-5 w-20 -translate-x-1/2 rounded-full bg-zinc-900" />
-        <div className="relative h-full w-full overflow-hidden rounded-[1.7rem] bg-white">
-          <SiteShot url={url} width={360} />
+        <div className="absolute left-1/2 top-2 z-10 h-3.5 w-14 -translate-x-1/2 rounded-full bg-zinc-900" />
+        <div className="relative h-full w-full overflow-hidden rounded-[1.45rem] bg-white">
+          <SiteShot url={url} width={400} liveScreenshot={liveScreenshot} />
           <ScanningOverlay active={scanning} />
         </div>
+      </div>
+    </div>
+  );
+}
+
+function LaptopMockup({
+  url,
+  scanning,
+  liveScreenshot,
+}: {
+  url: string;
+  scanning: boolean;
+  liveScreenshot?: string;
+}) {
+  return (
+    <div className="relative w-full max-w-[520px] shrink-0">
+      {/* Lid — the actual screen. */}
+      <div className="relative aspect-[16/10] rounded-[1.1rem] border-[10px] border-zinc-200 bg-zinc-100 p-0 shadow-[0_30px_80px_-25px_rgba(108,70,255,0.45)] dark:border-zinc-700 dark:bg-zinc-800">
+        {/* Webcam dot */}
+        <div className="absolute left-1/2 top-[3px] z-10 h-1 w-1 -translate-x-1/2 rounded-full bg-zinc-500" />
+        <div className="relative h-full w-full overflow-hidden rounded-[0.35rem] bg-white">
+          <SiteShot url={url} width={1024} liveScreenshot={liveScreenshot} />
+          <ScanningOverlay active={scanning} />
+        </div>
+      </div>
+      {/* Base / hinge */}
+      <div className="relative mx-auto -mt-[2px] h-[10px] w-[110%] -translate-x-[5%] rounded-b-[14px] bg-gradient-to-b from-zinc-300 to-zinc-200 shadow-[0_8px_20px_-6px_rgba(0,0,0,0.15)] dark:from-zinc-700 dark:to-zinc-800">
+        <div className="absolute left-1/2 top-0 h-[3px] w-[70px] -translate-x-1/2 rounded-b-md bg-zinc-300/90 dark:bg-zinc-900" />
       </div>
     </div>
   );
@@ -567,6 +655,7 @@ function ScoreRing({ label, value }: { label: string; value: number | null }) {
 // ── Field data + Lab metrics cards ──────────────────────────────────────────
 
 function FieldDataCard({ result }: { result: PageSpeedResult }) {
+  const available = result.field.available;
   return (
     <Card>
       <div className="mb-3 flex items-center justify-between">
@@ -580,9 +669,16 @@ function FieldDataCard({ result }: { result: PageSpeedResult }) {
               ? "bad"
               : "neutral"
         }>
-          {result.field.available ? `Assessment: ${result.field.coreWebVitalsAssessment}` : "Unavailable"}
+          {available ? `Assessment: ${result.field.coreWebVitalsAssessment}` : "Not enough traffic"}
         </Badge>
       </div>
+      {!available && (
+        <p className="mb-3 rounded-md border border-app bg-muted/40 p-3 text-xs text-muted-fg">
+          Google's CrUX dataset only has field data for sites with enough real-user traffic.
+          This site doesn't qualify yet — use the <strong>Lab metrics</strong> below instead, they
+          come from a fresh Lighthouse run and are accurate for any URL.
+        </p>
+      )}
       <div className="grid gap-3 sm:grid-cols-5">
         {result.field.metrics.map((m) => (
           <Stat
