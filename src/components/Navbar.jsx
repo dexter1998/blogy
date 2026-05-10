@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import './Navbar.css';
 
 const NAV_LINKS = [
+  { label: 'Tools', href: '/tools' },
   { label: 'Pricing', href: '/#pricing' },
 ];
 
