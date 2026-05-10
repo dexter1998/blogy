@@ -142,12 +142,59 @@ export function PageSpeedTool() {
 // ── Audit loader (shown while waiting 20-30s for PSI) ───────────────────────
 
 function AuditLoader() {
+  // PSI doesn't expose real progress — fake a believable curve that creeps
+  // toward 95% over ~25s and never quite finishes (state flips to results
+  // when the request returns).
+  const [pct, setPct] = useState(0);
+  useEffect(() => {
+    const start = Date.now();
+    const id = setInterval(() => {
+      const elapsed = (Date.now() - start) / 1000;
+      // Asymptotic approach to 95% — fast early, slows down later.
+      const next = Math.min(95, Math.round(95 * (1 - Math.exp(-elapsed / 9))));
+      setPct(next);
+    }, 200);
+    return () => clearInterval(id);
+  }, []);
+
+  const radius = 32;
+  const stroke = 5;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference * (1 - pct / 100);
+
   return (
     <div className="flex flex-col items-center justify-center gap-5 rounded-2xl border border-app bg-card px-6 py-14 text-center shadow-sm">
-      <div
-        className="h-14 w-14 rounded-full border-[3px] border-zinc-200 border-t-accent"
-        style={{ animation: "psi-spin 0.9s linear infinite" }}
-      />
+      <div className="relative h-20 w-20">
+        <svg width="80" height="80" viewBox="0 0 80 80" className="-rotate-90">
+          {/* Track */}
+          <circle
+            cx="40"
+            cy="40"
+            r={radius}
+            stroke="rgb(var(--border))"
+            strokeWidth={stroke}
+            fill="none"
+          />
+          {/* Progress arc (accent) */}
+          <circle
+            cx="40"
+            cy="40"
+            r={radius}
+            stroke="rgb(var(--accent))"
+            strokeWidth={stroke}
+            fill="none"
+            strokeLinecap="round"
+            strokeDasharray={circumference}
+            strokeDashoffset={offset}
+            style={{ transition: "stroke-dashoffset 200ms linear" }}
+          />
+        </svg>
+        <div className="absolute inset-0 flex items-center justify-center">
+          <span className="text-base font-semibold tabular-nums text-accent">
+            {pct}%
+          </span>
+        </div>
+      </div>
       <div>
         <div className="text-base font-semibold">Auditing your site…</div>
         <p className="mt-1 text-sm text-muted-fg">
@@ -155,11 +202,6 @@ function AuditLoader() {
           Average run ≈ 20–30 seconds.
         </p>
       </div>
-      <style jsx>{`
-        @keyframes psi-spin {
-          to { transform: rotate(360deg); }
-        }
-      `}</style>
     </div>
   );
 }
@@ -278,10 +320,11 @@ function shotUrls(url: string, viewport: { w: number; h: number }): string[] {
   if (!url) return [];
   const clean = url.replace(/^https?:\/\//i, "").replace(/\/$/, "");
   return [
-    // thum.io: viewport/<w>x<h>/ sets the headless-Chrome viewport, crop/<n>
-    // caps the captured height so we only get the top fold.
-    `https://image.thum.io/get/viewport/${viewport.w}x${viewport.h}/crop/${viewport.h}/noanimate/wait/3/https://${clean}`,
+    // mshots first — gives a clean top-of-page render at the exact w×h we
+    // ask for, no zoom weirdness. h param is what crops to the hero fold.
     `https://s.wordpress.com/mshots/v1/${encodeURIComponent("https://" + clean)}?w=${viewport.w}&h=${viewport.h}`,
+    // thum.io fallback — works for some sites mshots blocks (Cloudflare etc).
+    `https://image.thum.io/get/viewport/${viewport.w}x${viewport.h}/crop/${viewport.h}/noanimate/wait/3/https://${clean}`,
   ];
 }
 
@@ -494,8 +537,10 @@ function PhoneMockup({
         {/* Dynamic island / notch */}
         <div className="absolute left-1/2 top-2 z-10 h-3.5 w-14 -translate-x-1/2 rounded-full bg-zinc-900" />
         <div className="relative h-full w-full overflow-hidden rounded-[1.45rem] bg-white">
-          {/* Mobile viewport — captures only the top fold (≈ hero section) */}
-          <SiteShot url={url} viewport={{ w: 412, h: 870 }} liveScreenshot={liveScreenshot} />
+          {/* Mobile viewport — captures only the top fold (≈ hero section).
+              Width/height matches the phone frame's 9:19 aspect so the image
+              fits without object-cover cropping the wrong portion. */}
+          <SiteShot url={url} viewport={{ w: 450, h: 950 }} liveScreenshot={liveScreenshot} />
           <ScanningOverlay active={scanning} />
         </div>
       </div>
