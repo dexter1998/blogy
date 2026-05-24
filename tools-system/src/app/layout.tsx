@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { Navbar } from "@/components/navbar";
-import { Footer } from "@/components/footer";
 import { ThemeProvider } from "@/components/theme-provider";
+import { ConditionalLayout } from "@/components/conditional-layout";
 import { env } from "@/lib/env";
 
 export const metadata: Metadata = {
@@ -29,9 +28,7 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className="min-h-screen flex flex-col bg-app text-fg overflow-x-hidden">
         <ThemeProvider>
-          <Navbar />
-          <main className="flex-1 w-full max-w-full min-w-0 overflow-x-hidden">{children}</main>
-          <Footer />
+          <ConditionalLayout>{children}</ConditionalLayout>
         </ThemeProvider>
       </body>
     </html>
